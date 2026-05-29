@@ -1,0 +1,6 @@
+{
+  "name": "flipp",
+  "description": "A privacy-first PDF and image utility tool. Everything processed 100% locally on-device.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
