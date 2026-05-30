@@ -2099,7 +2099,8 @@ fun loadPdfThumbnails(context: Context, pdfUri: Uri, maxPages: Int = 4): List<Bi
             renderer.close()
         }
     } catch (e: Exception) {
-        e.printStackTrace()
+        // Exception handled by returning empty list which triggers UI error state
+        android.util.Log.e("MainActivity", "Error loading PDF thumbnails")
     }
     return bitmaps
 }
@@ -2116,7 +2117,8 @@ fun loadImageThumbnail(context: Context, uri: Uri): Bitmap? {
             BitmapFactory.decodeStream(inputStream, null, options)
         }
     } catch (e: Exception) {
-        e.printStackTrace()
+        // Exception handled by returning null which is managed by the caller
+        android.util.Log.e("MainActivity", "Error loading image thumbnail")
         null
     }
 }
