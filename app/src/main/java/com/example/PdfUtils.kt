@@ -108,9 +108,22 @@ object PdfUtils {
         doc.open()
         
         for ((index, uri) in imageUris.withIndex()) {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val imageBytes = inputStream.readBytes()
-                val image = Image.getInstance(imageBytes)
+            val image: Image
+            var tempFile: java.io.File? = null
+
+            try {
+                if (uri.scheme == "file" && uri.path != null) {
+                    image = Image.getInstance(uri.path)
+                } else {
+                    val inputStream = context.contentResolver.openInputStream(uri) ?: continue
+                    tempFile = java.io.File.createTempFile("pdf_image_tmp_", ".tmp", context.cacheDir)
+                    inputStream.use { input ->
+                        tempFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    image = Image.getInstance(tempFile.absolutePath)
+                }
                 
                 if (pageSizeOption.uppercase() == "AUTO") {
                     // Adjust page size dynamically to accommodate the image dimensions
@@ -133,6 +146,8 @@ object PdfUtils {
                     image.setAbsolutePosition(x, y)
                     doc.add(image)
                 }
+            } finally {
+                tempFile?.delete()
             }
             onProgress(index + 1, total)
         }
