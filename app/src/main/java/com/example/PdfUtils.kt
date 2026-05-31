@@ -108,46 +108,29 @@ object PdfUtils {
         doc.open()
         
         for ((index, uri) in imageUris.withIndex()) {
-            val image: Image
-            var tempFile: java.io.File? = null
+            val bytes = readBytesFromUri(context, uri) ?: continue
+            val image = Image.getInstance(bytes)
 
-            try {
-                if (uri.scheme == "file" && uri.path != null) {
-                    image = Image.getInstance(uri.path)
-                } else {
-                    val inputStream = context.contentResolver.openInputStream(uri) ?: continue
-                    tempFile = java.io.File.createTempFile("pdf_image_tmp_", ".tmp", context.cacheDir)
-                    inputStream.use { input ->
-                        tempFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    image = Image.getInstance(tempFile.absolutePath)
-                }
+            if (pageSizeOption.uppercase() == "AUTO") {
+                // Adjust page size dynamically to accommodate the image dimensions
+                val rect = Rectangle(image.width, image.height)
+                doc.setPageSize(rect)
+                doc.newPage()
+                image.setAbsolutePosition(0f, 0f)
+                doc.add(image)
+            } else {
+                // Scale image to fit within A4 or Letter page margins
+                doc.newPage()
+                val targetWidth = doc.pageSize.width - doc.leftMargin() - doc.rightMargin()
+                val targetHeight = doc.pageSize.height - doc.topMargin() - doc.bottomMargin()
                 
-                if (pageSizeOption.uppercase() == "AUTO") {
-                    // Adjust page size dynamically to accommodate the image dimensions
-                    val rect = Rectangle(image.width, image.height)
-                    doc.setPageSize(rect)
-                    doc.newPage()
-                    image.setAbsolutePosition(0f, 0f)
-                    doc.add(image)
-                } else {
-                    // Scale image to fit within A4 or Letter page margins
-                    doc.newPage()
-                    val targetWidth = doc.pageSize.width - doc.leftMargin() - doc.rightMargin()
-                    val targetHeight = doc.pageSize.height - doc.topMargin() - doc.bottomMargin()
+                image.scaleToFit(targetWidth, targetHeight)
 
-                    image.scaleToFit(targetWidth, targetHeight)
-
-                    // Center image
-                    val x = (doc.pageSize.width - image.scaledWidth) / 2f
-                    val y = (doc.pageSize.height - image.scaledHeight) / 2f
-                    image.setAbsolutePosition(x, y)
-                    doc.add(image)
-                }
-            } finally {
-                tempFile?.delete()
+                // Center image
+                val x = (doc.pageSize.width - image.scaledWidth) / 2f
+                val y = (doc.pageSize.height - image.scaledHeight) / 2f
+                image.setAbsolutePosition(x, y)
+                doc.add(image)
             }
             onProgress(index + 1, total)
         }
@@ -172,15 +155,14 @@ object PdfUtils {
         val total = pdfUris.size
         
         for ((index, uri) in pdfUris.withIndex()) {
-            context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                val reader = PdfReader(inputStream)
-                val numPages = reader.numberOfPages
+            val bytes = readBytesFromUri(context, uri) ?: continue
+            val reader = PdfReader(bytes)
+            val numPages = reader.numberOfPages
 
-                for (p in 1..numPages) {
-                    copy.addPage(copy.getImportedPage(reader, p))
-                }
-                reader.close()
+            for (p in 1..numPages) {
+                copy.addPage(copy.getImportedPage(reader, p))
             }
+            reader.close()
             onProgress(index + 1, total)
         }
         
@@ -198,27 +180,26 @@ object PdfUtils {
         endPage: Int,
         outputStream: OutputStream
     ) {
-        context.contentResolver.openInputStream(pdfUri)?.use { inputStream ->
-            val reader = PdfReader(inputStream)
-            val numPages = reader.numberOfPages
+        val bytes = readBytesFromUri(context, pdfUri) ?: throw Exception("Failed to read file bytes")
+        val reader = PdfReader(bytes)
+        val numPages = reader.numberOfPages
 
-            if (startPage < 1 || endPage > numPages || startPage > endPage) {
-                reader.close()
-                throw IllegalArgumentException("No valid pages in range.")
-            }
-
-            val doc = Document()
-            val copy = PdfCopy(doc, outputStream)
-            doc.open()
-
-            for (p in startPage..endPage) {
-                copy.addPage(copy.getImportedPage(reader, p))
-            }
-
-            doc.close()
-            copy.close()
+        if (startPage < 1 || endPage > numPages || startPage > endPage) {
             reader.close()
-        } ?: throw Exception("Failed to read file bytes")
+            throw IllegalArgumentException("No valid pages in range.")
+        }
+
+        val doc = Document()
+        val copy = PdfCopy(doc, outputStream)
+        doc.open()
+
+        for (p in startPage..endPage) {
+            copy.addPage(copy.getImportedPage(reader, p))
+        }
+
+        doc.close()
+        copy.close()
+        reader.close()
     }
 
     /**
@@ -230,20 +211,19 @@ object PdfUtils {
         password: java.lang.String,
         outputStream: OutputStream
     ) {
-        context.contentResolver.openInputStream(pdfUri)?.use { inputStream ->
-            val reader = PdfReader(inputStream)
+        val bytes = readBytesFromUri(context, pdfUri) ?: throw Exception("Failed to read PDF bytes")
+        val reader = PdfReader(bytes)
 
-            val stamper = PdfStamper(reader, outputStream)
-            stamper.setEncryption(
-                password.bytes,
-                password.bytes,
-                PdfWriter.ALLOW_PRINTING or PdfWriter.ALLOW_COPY,
-                PdfWriter.ENCRYPTION_AES_128
-            )
+        val stamper = PdfStamper(reader, outputStream)
+        stamper.setEncryption(
+            password.bytes,
+            password.bytes,
+            PdfWriter.ALLOW_PRINTING or PdfWriter.ALLOW_COPY,
+            PdfWriter.ENCRYPTION_AES_128
+        )
 
-            stamper.close()
-            reader.close()
-        } ?: throw Exception("Failed to read PDF bytes")
+        stamper.close()
+        reader.close()
     }
 
     /**
@@ -314,7 +294,26 @@ object PdfUtils {
             
             stamper.close()
             reader.close()
-        } ?: throw Exception("Failed to read PDF bytes")
+        } ?: throw Exception("Failed to open file descriptor")
     }
 
+    private fun readBytesFromUri(context: Context, uri: Uri): ByteArray? {
+        return try {
+            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
+            val byteBuffer = ByteArrayOutputStream()
+            val bufferSize = 4096
+            val buffer = ByteArray(bufferSize)
+            var len: Int
+            if (inputStream != null) {
+                while (inputStream.read(buffer).also { len = it } != -1) {
+                    byteBuffer.write(buffer, 0, len)
+                }
+                inputStream.close()
+            }
+            byteBuffer.toByteArray()
+        } catch (e: Exception) {
+            android.util.Log.e("PdfUtils", "Error reading bytes from URI")
+            null
+        }
+    }
 }
