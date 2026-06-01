@@ -211,19 +211,21 @@ object PdfUtils {
         password: java.lang.String,
         outputStream: OutputStream
     ) {
-        val bytes = readBytesFromUri(context, pdfUri) ?: throw Exception("Failed to read PDF bytes")
-        val reader = PdfReader(bytes)
+        val inputStream = context.contentResolver.openInputStream(pdfUri) ?: throw Exception("Failed to open input stream for PDF")
+        inputStream.use { stream ->
+            val reader = PdfReader(stream)
 
-        val stamper = PdfStamper(reader, outputStream)
-        stamper.setEncryption(
-            password.bytes,
-            password.bytes,
-            PdfWriter.ALLOW_PRINTING or PdfWriter.ALLOW_COPY,
-            PdfWriter.ENCRYPTION_AES_128
-        )
+            val stamper = PdfStamper(reader, outputStream)
+            stamper.setEncryption(
+                password.bytes,
+                password.bytes,
+                PdfWriter.ALLOW_PRINTING or PdfWriter.ALLOW_COPY,
+                PdfWriter.ENCRYPTION_AES_128
+            )
 
-        stamper.close()
-        reader.close()
+            stamper.close()
+            reader.close()
+        }
     }
 
     /**
