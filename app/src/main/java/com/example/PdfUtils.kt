@@ -220,7 +220,7 @@ object PdfUtils {
                 password.bytes,
                 password.bytes,
                 PdfWriter.ALLOW_PRINTING or PdfWriter.ALLOW_COPY,
-                PdfWriter.ENCRYPTION_AES_128
+                PdfWriter.ENCRYPTION_AES_256
             )
 
             stamper.close()
