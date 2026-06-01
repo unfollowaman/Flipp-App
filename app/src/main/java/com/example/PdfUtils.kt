@@ -155,14 +155,15 @@ object PdfUtils {
         val total = pdfUris.size
         
         for ((index, uri) in pdfUris.withIndex()) {
-            val bytes = readBytesFromUri(context, uri) ?: continue
-            val reader = PdfReader(bytes)
+            val inputStream = context.contentResolver.openInputStream(uri) ?: continue
+            val reader = PdfReader(inputStream)
             val numPages = reader.numberOfPages
 
             for (p in 1..numPages) {
                 copy.addPage(copy.getImportedPage(reader, p))
             }
             reader.close()
+            inputStream.close()
             onProgress(index + 1, total)
         }
         
@@ -180,12 +181,13 @@ object PdfUtils {
         endPage: Int,
         outputStream: OutputStream
     ) {
-        val bytes = readBytesFromUri(context, pdfUri) ?: throw Exception("Failed to read file bytes")
-        val reader = PdfReader(bytes)
+        val inputStream = context.contentResolver.openInputStream(pdfUri) ?: throw Exception("Failed to open input stream")
+        val reader = PdfReader(inputStream)
         val numPages = reader.numberOfPages
 
         if (startPage < 1 || endPage > numPages || startPage > endPage) {
             reader.close()
+            inputStream.close()
             throw IllegalArgumentException("No valid pages in range.")
         }
 
@@ -200,6 +202,7 @@ object PdfUtils {
         doc.close()
         copy.close()
         reader.close()
+        inputStream.close()
     }
 
     /**
