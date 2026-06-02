@@ -16,6 +16,7 @@ import com.itextpdf.text.pdf.PdfCopy
 import com.itextpdf.text.pdf.PdfReader
 import com.itextpdf.text.pdf.PdfStamper
 import com.itextpdf.text.pdf.PdfWriter
+import com.itextpdf.text.pdf.parser.PdfTextExtractor
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
@@ -345,6 +346,32 @@ object PdfUtils {
 
         doc.close()
         writer.close()
+    }
+
+
+    /**
+     * Extracts text from a PDF file.
+     */
+    fun extractTextFromPdf(
+        context: Context,
+        pdfUri: Uri,
+        onProgress: (Int, Int) -> Unit
+    ): String {
+        val inputStream = context.contentResolver.openInputStream(pdfUri) ?: throw Exception("Failed to open input stream for PDF")
+        return inputStream.use { stream ->
+            val reader = PdfReader(stream)
+            val numPages = reader.numberOfPages
+            val stringBuilder = StringBuilder()
+            for (i in 1..numPages) {
+                val textFromPage = PdfTextExtractor.getTextFromPage(reader, i)
+                if (textFromPage != null) {
+                    stringBuilder.append(textFromPage).append("\n\n")
+                }
+                onProgress(i, numPages)
+            }
+            reader.close()
+            stringBuilder.toString().trim()
+        }
     }
 
     private fun readBytesFromUri(context: Context, uri: Uri): ByteArray? {

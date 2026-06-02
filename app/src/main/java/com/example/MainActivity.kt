@@ -1,6 +1,8 @@
 package com.example
 
 import android.content.Context
+import android.content.ClipboardManager
+import android.content.ClipData
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.pdf.PdfRenderer
@@ -425,6 +427,7 @@ fun MainApp() {
                 "add_page_num" -> AddPageNumScreen(onBack = { currentScreen = "home" })
                 "add_watermark" -> AddWatermarkScreen(onBack = { currentScreen = "home" })
                 "text_pdf" -> TextToPdfScreen(onBack = { currentScreen = "home" })
+                "pdf_text" -> PdfToTextScreen(onBack = { currentScreen = "home" })
             }
         }
     }
@@ -441,7 +444,8 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
         ToolItem("PROTECT", "Protect PDF", "Password-encrypt with AES-256.", "protect_pdf", WhiteColor, "🔒", YellowColor),
         ToolItem("PAGES", "Page Numbers", "Stamp numbers at any position.", "add_page_num", AmberColor, "🔢"),
         ToolItem("WATERMARK", "Add Watermark", "Stamp images or text.", "add_watermark", SkyBlueColor, "💧", WhiteColor),
-        ToolItem("TXT → PDF", "Text to PDF", "Convert text to a PDF file.", "text_pdf", MintColor, "📝")
+        ToolItem("TXT → PDF", "Text to PDF", "Convert text to a PDF file.", "text_pdf", MintColor, "📝"),
+        ToolItem("PDF → TXT", "PDF to Text", "Extract all text from a PDF document.", "pdf_text", SkyBlueColor, "📑")
     )
 
     LazyVerticalGrid(
@@ -2785,6 +2789,175 @@ fun AddWatermarkScreen(onBack: () -> Unit) {
                             stage = 1
                         },
                         backgroundColor = MintColor
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+// ---------------------- PDF TO TEXT SCREEN ----------------------
+@Composable
+fun PdfToTextScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var stage by rememberSaveable { mutableIntStateOf(1) }
+    var selectedPdfUri by remember { mutableStateOf<Uri?>(null) }
+    var extractedText by rememberSaveable { mutableStateOf("") }
+    var progressVal by remember { mutableFloatStateOf(0f) }
+
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            selectedPdfUri = uri
+            stage = 2
+            progressVal = 0f
+            coroutineScope.launch(Dispatchers.IO) {
+                try {
+                    val text = PdfUtils.extractTextFromPdf(context, uri) { current, total ->
+                        progressVal = current.toFloat() / total.toFloat()
+                    }
+                    withContext(Dispatchers.Main) {
+                        extractedText = text
+                        stage = 3
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Failed to extract text. Is it a valid PDF?", Toast.LENGTH_LONG).show()
+                        stage = 1
+                    }
+                }
+            }
+        }
+    }
+
+    val txtSaver = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain"),
+        onResult = { uri ->
+            if (uri != null) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        context.contentResolver.openOutputStream(uri)?.use { out ->
+                            out.write(extractedText.toByteArray())
+                        }
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Text saved successfully!", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    ToolScreenTemplate(
+        title = "PDF to Text",
+        desc = "Extract text from any PDF document.",
+        badgeLabel = "PDF → TXT",
+        onBack = onBack,
+        badgeColor = SkyBlueColor
+    ) {
+        when (stage) {
+            1 -> {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Select PDF Document",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BlackColor,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Text(
+                        text = "Only unprotected PDFs are supported.",
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    DropZone(onBrowseClick = { filePicker.launch(arrayOf("application/pdf")) })
+                }
+            }
+            2 -> {
+                StageProgressBar(progress = progressVal, label = "Extracting text from PDF pages...")
+            }
+            3 -> {
+                Column(modifier = Modifier.fillMaxWidth().fillMaxHeight()) {
+                    Text(
+                        text = "Extracted Text (${extractedText.length} characters)",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BlackColor,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+
+                    if (extractedText.isBlank()) {
+                        BrutalistShadowBox(
+                            backgroundColor = YellowColor,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("No text could be extracted. 😕", fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("This usually means the PDF is scanned or consists entirely of images. OCR is required to extract text from image-based PDFs, which is not currently supported in this app.", fontSize = 14.sp)
+                            }
+                        }
+                    } else {
+                        OutlinedTextField(
+                            value = extractedText,
+                            onValueChange = { extractedText = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color.Transparent,
+                                unfocusedBorderColor = Color.Transparent
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            BrutalistButton(
+                                text = "Copy Text",
+                                onClick = {
+                                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                    val clip = ClipData.newPlainText("Extracted Text", extractedText)
+                                    clipboard.setPrimaryClip(clip)
+                                    Toast.makeText(context, "Text copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                },
+                                backgroundColor = WhiteColor,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            BrutalistButton(
+                                text = "Save as .TXT",
+                                onClick = { txtSaver.launch("extracted_text.txt") },
+                                backgroundColor = MintColor,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    BrutalistButton(
+                        text = "Extract another file ↺",
+                        onClick = {
+                            selectedPdfUri = null
+                            extractedText = ""
+                            stage = 1
+                        },
+                        backgroundColor = SkyBlueColor,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
