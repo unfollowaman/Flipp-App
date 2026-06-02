@@ -141,6 +141,7 @@ fun MainApp() {
                 "split_pdf" -> SplitPdfScreen(onBack = { currentScreen = "home" })
                 "protect_pdf" -> ProtectPdfScreen(onBack = { currentScreen = "home" })
                 "add_page_num" -> AddPageNumScreen(onBack = { currentScreen = "home" })
+                "add_watermark" -> AddWatermarkScreen(onBack = { currentScreen = "home" })
             }
         }
     }
@@ -155,7 +156,8 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
         ToolItem("MERGE", "Merge PDFs", "Combine multiple PDFs into one.", "merge_pdf", MintColor, "🔗"),
         ToolItem("SPLIT", "Split PDF", "Extract any page range instantly.", "split_pdf", SkyBlueColor, "✂️"),
         ToolItem("PROTECT", "Protect PDF", "Password-encrypt with AES-256.", "protect_pdf", WhiteColor, "🔒", YellowColor),
-        ToolItem("PAGES", "Page Numbers", "Stamp numbers at any position.", "add_page_num", AmberColor, "🔢")
+        ToolItem("PAGES", "Page Numbers", "Stamp numbers at any position.", "add_page_num", AmberColor, "🔢"),
+        ToolItem("WATERMARK", "Add Watermark", "Stamp images or text.", "add_watermark", SkyBlueColor, "💧", WhiteColor)
     )
 
     LazyVerticalGrid(
@@ -2120,5 +2122,388 @@ fun loadImageThumbnail(context: Context, uri: Uri): Bitmap? {
         // Exception handled by returning null which is managed by the caller
         android.util.Log.e("MainActivity", "Error loading image thumbnail")
         null
+    }
+}
+
+// ---------------------- TOOL 7: ADD WATERMARK ----------------------
+@Composable
+fun AddWatermarkScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var stage by rememberSaveable { mutableIntStateOf(1) }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    // Config values
+    var watermarkType by rememberSaveable { mutableStateOf("text") } // "text" or "image"
+    var watermarkText by remember { mutableStateOf("CONFIDENTIAL") }
+    var watermarkImageUri by remember { mutableStateOf<Uri?>(null) }
+    var position by rememberSaveable { mutableStateOf("center") } // top-left ... center ... bottom-right
+    var opacity by rememberSaveable { mutableFloatStateOf(0.5f) } // 0.0 to 1.0
+    var size by rememberSaveable { mutableFloatStateOf(1.0f) } // 0.1 to 3.0
+    var rotation by rememberSaveable { mutableFloatStateOf(0f) } // 0 to 360
+    var textColorHex by rememberSaveable { mutableStateOf("#000000") } // #000000 format
+
+    var progressVal by remember { mutableFloatStateOf(0f) }
+    var tempResultFile by remember { mutableStateOf<File?>(null) }
+
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            if (uri != null) {
+                selectedImageUri = uri
+                stage = 2
+            } else {
+                Toast.makeText(context, "Please select an image file.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
+    val watermarkImagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            if (uri != null) {
+                watermarkImageUri = uri
+            }
+        }
+    )
+
+    val imageSaver = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("image/jpeg"),
+        onResult = { uri ->
+            if (uri != null && tempResultFile != null) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        context.contentResolver.openOutputStream(uri)?.use { out ->
+                            tempResultFile!!.inputStream().copyTo(out)
+                        }
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Watermarked image saved successfully!", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    val positionsList = listOf(
+        Pair("top-left", "Top Left"),
+        Pair("top-center", "Top Center"),
+        Pair("top-right", "Top Right"),
+        Pair("center", "Center"),
+        Pair("bottom-left", "Bottom Left"),
+        Pair("bottom-center", "Bottom Center"),
+        Pair("bottom-right", "Bottom Right")
+    )
+
+    val colorsList = listOf(
+        Pair("#000000", "Black"),
+        Pair("#FFFFFF", "White"),
+        Pair("#FF0000", "Red"),
+        Pair("#0000FF", "Blue")
+    )
+
+    ToolScreenTemplate(
+        title = "Add Watermark",
+        desc = "Protect your images by stamping a text or image watermark over them.",
+        badgeLabel = "WATERMARK",
+        onBack = onBack,
+        badgeColor = SkyBlueColor
+    ) {
+        when (stage) {
+            1 -> {
+                DropZone(
+                    onBrowseClick = { filePicker.launch(arrayOf("image/*")) },
+                    prompt = "Select an image to add a watermark.",
+                    badgeColor = MintColor
+                )
+            }
+            2 -> {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Watermark Settings",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BlackColor,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    BrutalistShadowBox(
+                        backgroundColor = CreamColor,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            // Type toggle
+                            Text("Type:", fontWeight = FontWeight.Bold)
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(
+                                        selected = watermarkType == "text",
+                                        onClick = { watermarkType = "text" },
+                                        colors = RadioButtonDefaults.colors(selectedColor = BlackColor)
+                                    )
+                                    Text("Text")
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    RadioButton(
+                                        selected = watermarkType == "image",
+                                        onClick = { watermarkType = "image" },
+                                        colors = RadioButtonDefaults.colors(selectedColor = BlackColor)
+                                    )
+                                    Text("Image")
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            if (watermarkType == "text") {
+                                Text("Watermark Text:", fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedTextField(
+                                    value = watermarkText,
+                                    onValueChange = { watermarkText = it },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = BlackColor,
+                                        unfocusedBorderColor = BlackColor
+                                    ),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Text("Text Color:", fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                LazyVerticalGrid(
+                                    columns = GridCells.Fixed(2),
+                                    modifier = Modifier.fillMaxWidth().height(100.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(colorsList.size) { index ->
+                                        val color = colorsList[index]
+                                        val isSelected = textColorHex == color.first
+                                        Box(
+                                            modifier = Modifier
+                                                .background(if (isSelected) MintColor else WhiteColor, RoundedCornerShape(8.dp))
+                                                .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
+                                                .clickable { textColorHex = color.first }
+                                                .padding(8.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(color.second, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+                                        }
+                                    }
+                                }
+                            } else {
+                                Text("Watermark Image:", fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                BrutalistButton(
+                                    text = if (watermarkImageUri == null) "Select Image 🖼️" else "Change Image 🖼️",
+                                    onClick = { watermarkImagePicker.launch(arrayOf("image/*")) },
+                                    backgroundColor = WhiteColor
+                                )
+                                if (watermarkImageUri != null) {
+                                    Text("Image selected.", fontSize = 12.sp, color = com.example.ui.theme.MintColor, modifier = Modifier.padding(top = 4.dp))
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Sliders
+                            Text("Opacity (${(opacity * 100).toInt()}%):", fontWeight = FontWeight.Bold)
+                            androidx.compose.material3.Slider(
+                                value = opacity,
+                                onValueChange = { opacity = it },
+                                valueRange = 0f..1f,
+                                colors = androidx.compose.material3.SliderDefaults.colors(
+                                    thumbColor = BlackColor,
+                                    activeTrackColor = BlackColor,
+                                    inactiveTrackColor = Color.Gray
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text("Size (${String.format("%.1f", size)}x):", fontWeight = FontWeight.Bold)
+                            androidx.compose.material3.Slider(
+                                value = size,
+                                onValueChange = { size = it },
+                                valueRange = 0.1f..3.0f,
+                                colors = androidx.compose.material3.SliderDefaults.colors(
+                                    thumbColor = BlackColor,
+                                    activeTrackColor = BlackColor,
+                                    inactiveTrackColor = Color.Gray
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text("Rotation (${rotation.toInt()}°):", fontWeight = FontWeight.Bold)
+                            androidx.compose.material3.Slider(
+                                value = rotation,
+                                onValueChange = { rotation = it },
+                                valueRange = 0f..360f,
+                                colors = androidx.compose.material3.SliderDefaults.colors(
+                                    thumbColor = BlackColor,
+                                    activeTrackColor = BlackColor,
+                                    inactiveTrackColor = Color.Gray
+                                )
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text("Position:", fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LazyVerticalGrid(
+                                columns = GridCells.Fixed(2),
+                                modifier = Modifier.fillMaxWidth().height(200.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(positionsList.size) { index ->
+                                    val pos = positionsList[index]
+                                    val isSelected = position == pos.first
+                                    Box(
+                                        modifier = Modifier
+                                            .background(if (isSelected) MintColor else WhiteColor, RoundedCornerShape(8.dp))
+                                            .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
+                                            .clickable { position = pos.first }
+                                            .padding(12.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(pos.second, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center)
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    BrutalistButton(
+                        text = "Next ➜",
+                        onClick = {
+                            if (watermarkType == "image" && watermarkImageUri == null) {
+                                Toast.makeText(context, "Please select a watermark image first.", Toast.LENGTH_SHORT).show()
+                            } else {
+                                stage = 3
+                            }
+                        },
+                        backgroundColor = MintColor
+                    )
+                }
+            }
+            3 -> {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Review Watermark",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BlackColor,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+
+                    BrutalistShadowBox(
+                        backgroundColor = CreamColor,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("Ready to stamp image. 💧", fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Type: ${watermarkType.uppercase()}", fontSize = 14.sp)
+                            if (watermarkType == "text") {
+                                Text("Text: $watermarkText", fontSize = 14.sp)
+                                Text("Color: $textColorHex", fontSize = 14.sp)
+                            }
+                            Text("Position: ${position.uppercase()}", fontSize = 14.sp)
+                            Text("Opacity: ${(opacity * 100).toInt()}%", fontSize = 14.sp)
+                            Text("Size: ${String.format("%.1f", size)}x", fontSize = 14.sp)
+                            Text("Rotation: ${rotation.toInt()}°", fontSize = 14.sp)
+                        }
+                    }
+
+                    BrutalistButton(
+                        text = "Apply Watermark →",
+                        onClick = {
+                            stage = 4
+                            progressVal = 0.5f
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try {
+                                    val tempFile = File.createTempFile("watermarked_", ".jpg", context.cacheDir)
+                                    tempResultFile = tempFile
+
+                                    FileOutputStream(tempFile).use { fos ->
+                                        ImageUtils.addWatermark(
+                                            context = context,
+                                            baseImageUri = selectedImageUri!!,
+                                            watermarkType = watermarkType,
+                                            watermarkText = watermarkText,
+                                            watermarkImageUri = watermarkImageUri,
+                                            position = position,
+                                            opacity = opacity,
+                                            rotation = rotation,
+                                            size = size,
+                                            colorStr = textColorHex,
+                                            outputStream = fos
+                                        )
+                                    }
+
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Watermark applied!", Toast.LENGTH_SHORT).show()
+                                        stage = 5
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Failed to apply watermark. Is it a valid image?", Toast.LENGTH_LONG).show()
+                                        stage = 1
+                                    }
+                                }
+                            }
+                        },
+                        backgroundColor = MintColor
+                    )
+                }
+            }
+            4 -> {
+                StageProgressBar(progress = progressVal, label = "Stamping watermark...")
+            }
+            5 -> {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "🎉 Watermark Applied Successfully!",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = BlackColor,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+
+                    BrutalistButton(
+                        text = "Download Image 📁",
+                        onClick = { imageSaver.launch("watermarked_image.jpg") },
+                        backgroundColor = MintColor
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    BrutalistButton(
+                        text = "Watermark another file ↺",
+                        onClick = {
+                            tempResultFile?.delete()
+                            selectedImageUri = null
+                            watermarkImageUri = null
+                            tempResultFile = null
+                            stage = 1
+                        },
+                        backgroundColor = MintColor
+                    )
+                }
+            }
+        }
     }
 }
