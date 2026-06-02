@@ -110,10 +110,6 @@ Flipp-App/
 │       │       └── xml/              # Backup and data extraction rules
 │       ├── test/                     # JVM/unit/Robolectric/Roborazzi tests
 │       └── androidTest/              # Instrumented Android tests
-├── assets/
-│   └── aistudio/                     # App-generation or project asset metadata
-└── .build-outputs/
-    └── app-debug.apk                 # Generated debug APK artifact, when present
 ```
 
 ---
