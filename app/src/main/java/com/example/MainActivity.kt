@@ -100,6 +100,288 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// ---------------------- TEXT TO PDF SCREEN ----------------------
+@Composable
+fun TextToPdfScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    var stage by rememberSaveable { mutableIntStateOf(1) }
+    var textInput by rememberSaveable { mutableStateOf("") }
+
+    // Config values
+    var pageSizeSelection by rememberSaveable { mutableStateOf("A4") }
+    var marginOption by rememberSaveable { mutableStateOf("normal") } // small, normal, large
+    var fontSizeStr by rememberSaveable { mutableStateOf("12") }
+    var alignment by rememberSaveable { mutableStateOf("left") } // left, center, right, justified
+
+    var progressVal by remember { mutableFloatStateOf(0f) }
+    var tempPdfFile by remember { mutableStateOf<File?>(null) }
+
+    val pdfSaver = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/pdf"),
+        onResult = { uri ->
+            if (uri != null && tempPdfFile != null) {
+                coroutineScope.launch(Dispatchers.IO) {
+                    try {
+                        context.contentResolver.openOutputStream(uri)?.use { out ->
+                            tempPdfFile!!.inputStream().use { input ->
+                                input.copyTo(out)
+                            }
+                        }
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Text to PDF saved successfully!", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }
+            }
+        }
+    )
+
+    ToolScreenTemplate(
+        title = "Text to PDF",
+        desc = "Convert your text into a PDF document.",
+        badgeLabel = "TXT → PDF",
+        onBack = onBack,
+        badgeColor = MintColor
+    ) {
+        when (stage) {
+            1 -> {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "Enter your text:",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BlackColor,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    OutlinedTextField(
+                        value = textInput,
+                        onValueChange = { textInput = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "${textInput.length} characters",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.align(Alignment.End)
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        BrutalistButton(
+                            text = "Clear",
+                            onClick = { textInput = "" },
+                            backgroundColor = PinkColor
+                        )
+                        BrutalistButton(
+                            text = "Next ➔",
+                            onClick = {
+                                if (textInput.isNotBlank()) {
+                                    stage = 2
+                                } else {
+                                    Toast.makeText(context, "Please enter some text.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            backgroundColor = MintColor
+                        )
+                    }
+                }
+            }
+            2 -> {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Page Size Selection
+                    Text("Page Size:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("A4", "LETTER").forEach { option ->
+                            BrutalistButton(
+                                text = option,
+                                onClick = { pageSizeSelection = option },
+                                backgroundColor = if (pageSizeSelection == option) MintColor else WhiteColor,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Margins Option Selection
+                    Text("Margins:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("small", "normal", "large").forEach { option ->
+                            BrutalistButton(
+                                text = option.capitalize(),
+                                onClick = { marginOption = option },
+                                backgroundColor = if (marginOption == option) MintColor else WhiteColor,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Alignment Option Selection
+                    Text("Alignment:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf("left", "center", "right", "justified").forEach { option ->
+                            BrutalistButton(
+                                text = option.capitalize(),
+                                onClick = { alignment = option },
+                                backgroundColor = if (alignment == option) MintColor else WhiteColor,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Font Size Input
+                    Text(text = "Font Size:", fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = fontSizeStr,
+                        onValueChange = { if (it.all { char -> char.isDigit() }) fontSizeStr = it },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp)
+                            .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color.Transparent,
+                            unfocusedBorderColor = Color.Transparent
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        BrutalistButton(
+                            text = "Back",
+                            onClick = { stage = 1 },
+                            backgroundColor = YellowColor
+                        )
+                        BrutalistButton(
+                            text = "Generate PDF ➔",
+                            onClick = {
+                                val size = fontSizeStr.toFloatOrNull()
+                                if (size != null && size > 0) {
+                                    stage = 3
+                                    progressVal = 0.5f // Indeterminate-like progress
+                                    coroutineScope.launch(Dispatchers.IO) {
+                                        try {
+                                            val marginFloat = when(marginOption) {
+                                                "small" -> 18f
+                                                "normal" -> 36f
+                                                "large" -> 72f
+                                                else -> 36f
+                                            }
+
+                                            val cacheDir = context.cacheDir
+                                            val file = File(cacheDir, "text_generated.pdf")
+                                            val fileOut = FileOutputStream(file)
+                                            PdfUtils.textToPdf(
+                                                context = context,
+                                                text = textInput,
+                                                pageSizeOption = pageSizeSelection,
+                                                fontSize = size,
+                                                margin = marginFloat,
+                                                alignment = alignment,
+                                                outputStream = fileOut
+                                            )
+                                            fileOut.close()
+
+                                            withContext(Dispatchers.Main) {
+                                                progressVal = 1f
+                                                tempPdfFile = file
+                                                stage = 4
+                                            }
+                                        } catch (e: Exception) {
+                                            withContext(Dispatchers.Main) {
+                                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                                stage = 2
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Please enter a valid font size.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            backgroundColor = MintColor
+                        )
+                    }
+                }
+            }
+            3 -> {
+                StageProgressBar(progress = progressVal, label = "Generating PDF...")
+            }
+            4 -> {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "🎉 PDF Generated Successfully!",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = BlackColor,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        textAlign = TextAlign.Center
+                    )
+
+                    BrutalistButton(
+                        text = "Download PDF 📁",
+                        backgroundColor = YellowColor,
+                        onClick = { pdfSaver.launch("text_generated.pdf") }
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // No Share PDF feature in the other parts of the app either, remove for consistency.
+
+                    BrutalistButton(
+                        text = "Create Another ↺",
+                        onClick = {
+                            tempPdfFile?.delete()
+                            textInput = ""
+                            tempPdfFile = null
+                            stage = 1
+                        },
+                        backgroundColor = MintColor
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun MainApp() {
     val context = LocalContext.current
@@ -142,6 +424,7 @@ fun MainApp() {
                 "protect_pdf" -> ProtectPdfScreen(onBack = { currentScreen = "home" })
                 "add_page_num" -> AddPageNumScreen(onBack = { currentScreen = "home" })
                 "add_watermark" -> AddWatermarkScreen(onBack = { currentScreen = "home" })
+                "text_pdf" -> TextToPdfScreen(onBack = { currentScreen = "home" })
             }
         }
     }
@@ -157,7 +440,8 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
         ToolItem("SPLIT", "Split PDF", "Extract any page range instantly.", "split_pdf", SkyBlueColor, "✂️"),
         ToolItem("PROTECT", "Protect PDF", "Password-encrypt with AES-256.", "protect_pdf", WhiteColor, "🔒", YellowColor),
         ToolItem("PAGES", "Page Numbers", "Stamp numbers at any position.", "add_page_num", AmberColor, "🔢"),
-        ToolItem("WATERMARK", "Add Watermark", "Stamp images or text.", "add_watermark", SkyBlueColor, "💧", WhiteColor)
+        ToolItem("WATERMARK", "Add Watermark", "Stamp images or text.", "add_watermark", SkyBlueColor, "💧", WhiteColor),
+        ToolItem("TXT → PDF", "Text to PDF", "Convert text to a PDF file.", "text_pdf", MintColor, "📝")
     )
 
     LazyVerticalGrid(
