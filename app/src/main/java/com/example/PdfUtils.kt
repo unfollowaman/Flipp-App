@@ -5,7 +5,10 @@ import android.graphics.Bitmap
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import com.itextpdf.text.Document
+import com.itextpdf.text.Element
+import com.itextpdf.text.Font
 import com.itextpdf.text.Image
+import com.itextpdf.text.Paragraph
 import com.itextpdf.text.PageSize
 import com.itextpdf.text.Rectangle
 import com.itextpdf.text.pdf.BaseFont
@@ -300,6 +303,48 @@ object PdfUtils {
             stamper.close()
             reader.close()
         } ?: throw Exception("Failed to open file descriptor")
+    }
+
+    /**
+     * Converts text to a PDF file.
+     */
+    fun textToPdf(
+        context: Context,
+        text: String,
+        pageSizeOption: String, // "A4", "LETTER"
+        fontSize: Float,
+        margin: Float,
+        alignment: String, // "left", "center", "right", "justified"
+        outputStream: OutputStream
+    ) {
+        val docSize = when (pageSizeOption.uppercase()) {
+            "A4" -> PageSize.A4
+            "LETTER" -> PageSize.LETTER
+            else -> PageSize.A4
+        }
+
+        val doc = Document(docSize, margin, margin, margin, margin)
+        val writer = PdfWriter.getInstance(doc, outputStream)
+
+        doc.open()
+
+        val baseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED)
+        val font = Font(baseFont, fontSize)
+
+        val paragraph = Paragraph(text, font)
+
+        when (alignment.lowercase()) {
+            "left" -> paragraph.alignment = Element.ALIGN_LEFT
+            "center" -> paragraph.alignment = Element.ALIGN_CENTER
+            "right" -> paragraph.alignment = Element.ALIGN_RIGHT
+            "justified" -> paragraph.alignment = Element.ALIGN_JUSTIFIED
+            else -> paragraph.alignment = Element.ALIGN_LEFT
+        }
+
+        doc.add(paragraph)
+
+        doc.close()
+        writer.close()
     }
 
     private fun readBytesFromUri(context: Context, uri: Uri): ByteArray? {
