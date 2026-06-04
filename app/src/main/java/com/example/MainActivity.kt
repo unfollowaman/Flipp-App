@@ -2367,15 +2367,13 @@ fun loadPdfThumbnails(context: Context, pdfUri: Uri, maxPages: Int = 4): List<Bi
     val bitmaps = mutableListOf<Bitmap>()
     try {
         context.contentResolver.openFileDescriptor(pdfUri, "r")?.use { pfd ->
-            val reader = PdfReader(context.contentResolver.openInputStream(pdfUri))
-            // Check if encrypted before feeding to PdfRenderer to prevent system crashes
-            if (reader.isEncrypted) {
-                reader.close()
+            val renderer = try {
+                PdfRenderer(pfd)
+            } catch (e: SecurityException) {
+                // PdfRenderer throws SecurityException if the PDF is encrypted/password-protected
                 return emptyList()
             }
-            reader.close()
             
-            val renderer = PdfRenderer(pfd)
             val pagesToRender = minOf(renderer.pageCount, maxPages)
             for (i in 0 until pagesToRender) {
                 val page = renderer.openPage(i)
