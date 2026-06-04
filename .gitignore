@@ -17,7 +17,6 @@ local.properties
 .env
 debug.keystore
 app/build
-gradle/wrapper
 test_output.txt
 .build-outputs/
 *.keystore.base64
