@@ -81,7 +81,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
-import com.itextpdf.text.pdf.PdfReader
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
