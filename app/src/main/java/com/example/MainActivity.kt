@@ -435,17 +435,19 @@ fun MainApp() {
 // ---------------------- HOME SCREEN ----------------------
 @Composable
 fun HomeScreen(onScreenNavigate: (String) -> Unit) {
-    val tools = listOf(
-        ToolItem("PDF → PNG", "PDF to Images", "Convert every PDF page to crisp PNG.", "pdf_png", YellowColor, "📄"),
-        ToolItem("IMG → PDF", "Images to PDF", "Combine photos into one PDF file.", "image_pdf", PinkColor, "🖼️"),
-        ToolItem("MERGE", "Merge PDFs", "Combine multiple PDFs into one.", "merge_pdf", MintColor, "🔗"),
-        ToolItem("SPLIT", "Split PDF", "Extract any page range instantly.", "split_pdf", SkyBlueColor, "✂️"),
-        ToolItem("PROTECT", "Protect PDF", "Password-encrypt with AES-256.", "protect_pdf", WhiteColor, "🔒", YellowColor),
-        ToolItem("PAGES", "Page Numbers", "Stamp numbers at any position.", "add_page_num", AmberColor, "🔢"),
-        ToolItem("WATERMARK", "Add Watermark", "Stamp images or text.", "add_watermark", SkyBlueColor, "💧", WhiteColor),
-        ToolItem("TXT → PDF", "Text to PDF", "Convert text to a PDF file.", "text_pdf", MintColor, "📝"),
-        ToolItem("PDF → TXT", "PDF to Text", "Extract all text from a PDF document.", "pdf_text", SkyBlueColor, "📑")
-    )
+    val tools = remember {
+        listOf(
+            ToolItem("PDF → PNG", "PDF to Images", "Convert every PDF page to crisp PNG.", "pdf_png", YellowColor, "📄"),
+            ToolItem("IMG → PDF", "Images to PDF", "Combine photos into one PDF file.", "image_pdf", PinkColor, "🖼️"),
+            ToolItem("MERGE", "Merge PDFs", "Combine multiple PDFs into one.", "merge_pdf", MintColor, "🔗"),
+            ToolItem("SPLIT", "Split PDF", "Extract any page range instantly.", "split_pdf", SkyBlueColor, "✂️"),
+            ToolItem("PROTECT", "Protect PDF", "Password-encrypt with AES-256.", "protect_pdf", WhiteColor, "🔒", YellowColor),
+            ToolItem("PAGES", "Page Numbers", "Stamp numbers at any position.", "add_page_num", AmberColor, "🔢"),
+            ToolItem("WATERMARK", "Add Watermark", "Stamp images or text.", "add_watermark", SkyBlueColor, "💧", WhiteColor),
+            ToolItem("TXT → PDF", "Text to PDF", "Convert text to a PDF file.", "text_pdf", MintColor, "📝"),
+            ToolItem("PDF → TXT", "PDF to Text", "Extract all text from a PDF document.", "pdf_text", SkyBlueColor, "📑")
+        )
+    }
 
     LazyVerticalGrid(
         columns = GridCells.Fixed(2),
