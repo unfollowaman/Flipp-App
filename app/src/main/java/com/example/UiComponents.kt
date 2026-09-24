@@ -34,6 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -305,6 +307,8 @@ fun ToolBadge(
     }
 }
 
+private val dropZonePathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f)
+
 @Composable
 fun DropZone(
     onBrowseClick: () -> Unit,
@@ -320,10 +324,9 @@ fun DropZone(
             .background(Color(0xFFFAFAFA), RoundedCornerShape(16.dp))
             .drawBehind {
                 val strokeWidth = 2.dp.toPx()
-                val pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f)
                 drawRoundRect(
                     color = BlackColor,
-                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth, pathEffect = pathEffect),
+                    style = Stroke(width = strokeWidth, pathEffect = dropZonePathEffect),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())
                 )
             }
