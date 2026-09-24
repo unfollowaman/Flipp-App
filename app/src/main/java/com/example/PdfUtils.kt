@@ -389,7 +389,6 @@ object PdfUtils {
             }
             byteBuffer.toByteArray()
         } catch (e: Exception) {
-            android.util.Log.e("PdfUtils", "Error reading bytes from URI")
             null
         }
     }
