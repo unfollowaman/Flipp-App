@@ -89,6 +89,32 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private val PAGE_NUM_POSITIONS_LIST = listOf(
+    Pair("top-left", "Top Left"),
+    Pair("top-center", "Top Center"),
+    Pair("top-right", "Top Right"),
+    Pair("bottom-left", "Bottom Left"),
+    Pair("bottom-center", "Bottom Center"),
+    Pair("bottom-right", "Bottom Right")
+)
+
+private val WATERMARK_POSITIONS_LIST = listOf(
+    Pair("top-left", "Top Left"),
+    Pair("top-center", "Top Center"),
+    Pair("top-right", "Top Right"),
+    Pair("center", "Center"),
+    Pair("bottom-left", "Bottom Left"),
+    Pair("bottom-center", "Bottom Center"),
+    Pair("bottom-right", "Bottom Right")
+)
+
+private val WATERMARK_COLORS_LIST = listOf(
+    Pair("#000000", "Black"),
+    Pair("#FFFFFF", "White"),
+    Pair("#FF0000", "Red"),
+    Pair("#0000FF", "Blue")
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -2061,14 +2087,7 @@ fun AddPageNumScreen(onBack: () -> Unit) {
         }
     )
 
-    val positionsList = listOf(
-        Pair("top-left", "Top Left"),
-        Pair("top-center", "Top Center"),
-        Pair("top-right", "Top Right"),
-        Pair("bottom-left", "Bottom Left"),
-        Pair("bottom-center", "Bottom Center"),
-        Pair("bottom-right", "Bottom Right")
-    )
+    val positionsList = PAGE_NUM_POSITIONS_LIST
 
     ToolScreenTemplate(
         title = "Add Page Numbers",
@@ -2477,22 +2496,8 @@ fun AddWatermarkScreen(onBack: () -> Unit) {
         }
     )
 
-    val positionsList = listOf(
-        Pair("top-left", "Top Left"),
-        Pair("top-center", "Top Center"),
-        Pair("top-right", "Top Right"),
-        Pair("center", "Center"),
-        Pair("bottom-left", "Bottom Left"),
-        Pair("bottom-center", "Bottom Center"),
-        Pair("bottom-right", "Bottom Right")
-    )
-
-    val colorsList = listOf(
-        Pair("#000000", "Black"),
-        Pair("#FFFFFF", "White"),
-        Pair("#FF0000", "Red"),
-        Pair("#0000FF", "Blue")
-    )
+    val positionsList = WATERMARK_POSITIONS_LIST
+    val colorsList = WATERMARK_COLORS_LIST
 
     ToolScreenTemplate(
         title = "Add Watermark",
