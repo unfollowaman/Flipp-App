@@ -85,6 +85,8 @@ import com.itextpdf.text.pdf.PdfReader
 import java.io.File
 import java.io.FileOutputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -1020,17 +1022,17 @@ fun ImagesToPdfScreen(onBack: () -> Unit) {
                 selectedImageUris.addAll(uris)
                 stage = 2
                 
-                // Load thumbnails
+                // Load thumbnails concurrently
                 coroutineScope.launch {
-                    uris.forEach { uri ->
-                        if (!imageThumbnailsMap.containsKey(uri)) {
-                            val thumb = withContext(Dispatchers.IO) {
-                                loadImageThumbnail(context, uri)
-                            }
-                            if (thumb != null) {
-                                imageThumbnailsMap[uri] = thumb
-                            }
+                    val newUris = uris.filter { !imageThumbnailsMap.containsKey(it) }
+                    val results = newUris.map { uri ->
+                        async(Dispatchers.IO) {
+                            val thumb = loadImageThumbnail(context, uri)
+                            if (thumb != null) uri to thumb else null
                         }
+                    }.awaitAll()
+                    results.filterNotNull().forEach { (uri, thumb) ->
+                        imageThumbnailsMap[uri] = thumb
                     }
                 }
             } else {
