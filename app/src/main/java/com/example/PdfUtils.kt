@@ -332,7 +332,7 @@ object PdfUtils {
         val baseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED)
         val font = Font(baseFont, fontSize)
 
-        val paragraph = Paragraph(text, font)
+        val paragraph = Paragraph(text.ifEmpty { " " }, font)
 
         when (alignment.lowercase()) {
             "left" -> paragraph.alignment = Element.ALIGN_LEFT
