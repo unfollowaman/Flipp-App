@@ -89,3 +89,8 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+tasks.withType(Test::class.java).configureEach {
+    systemProperty("robolectric.dependency.repo.url", "https://maven-central.storage-download.googleapis.com/maven2/")
+    systemProperty("robolectric.dependency.repo.id", "google-maven-central")
+}
