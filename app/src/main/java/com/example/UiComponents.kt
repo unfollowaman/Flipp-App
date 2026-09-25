@@ -37,6 +37,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -394,6 +399,33 @@ fun DropZone(
             }
         }
     }
+}
+
+@Composable
+fun SingleFileDropZone(
+    onFileSelected: (Uri) -> Unit,
+    mimeTypes: Array<String> = arrayOf("application/pdf"),
+    prompt: String = "Please select a file.",
+    badgeColor: Color = WhiteColor,
+    onCancelledMessage: String = "Please select a file."
+) {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            if (uri != null) {
+                onFileSelected(uri)
+            } else if (onCancelledMessage.isNotEmpty()) {
+                Toast.makeText(context, onCancelledMessage, Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+
+    DropZone(
+        onBrowseClick = { launcher.launch(mimeTypes) },
+        prompt = prompt,
+        badgeColor = badgeColor
+    )
 }
 
 @Composable
