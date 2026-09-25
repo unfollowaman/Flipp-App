@@ -1,0 +1,3 @@
+## 2025-05-25 - [Direct Matrix Canvas Scaling for Watermarking]
+**Learning:** Calling `Bitmap.createScaledBitmap` creates a full secondary ARGB bitmap allocation in memory, causing memory pressure and potential GC pauses on large images. Applying scaling directly through a `Matrix` passed to `Canvas.drawBitmap(bitmap, matrix, paint)` performs the transformation in a single pass without allocating intermediate bitmaps.
+**Action:** When performing image scaling alongside translation and rotation on Android Canvas, always combine operations into a single `Matrix` transformation instead of creating intermediate scaled `Bitmap` objects.
