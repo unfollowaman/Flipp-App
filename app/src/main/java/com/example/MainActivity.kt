@@ -52,6 +52,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.RadioButton
@@ -1912,11 +1913,14 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
                                 trailingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Lock,
-                                        contentDescription = "Lock icon",
-                                        modifier = Modifier.clickable { isPasswordVisible = !isPasswordVisible }
-                                    )
+                                    IconButton(
+                                        onClick = { isPasswordVisible = !isPasswordVisible }
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = if (isPasswordVisible) "Hide password" else "Show password"
+                                        )
+                                    }
                                 },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = BlackColor,
