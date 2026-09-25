@@ -100,23 +100,22 @@ object ImageUtils {
                 else -> y = (height - targetWmHeight) / 2f
             }
 
+            // Optimize: Instead of allocating an intermediate Bitmap via Bitmap.createScaledBitmap (which creates a full secondary ARGB bitmap in RAM),
+            // use Matrix scaling directly on Canvas.drawBitmap to eliminate extra bitmap allocations and reduce GC overhead.
+            val scaleX = targetWmWidth / wmBitmap.width.toFloat()
+            val scaleY = targetWmHeight / wmBitmap.height.toFloat()
+
             val matrix = Matrix()
-            // First translate to position
+            // Scale original bitmap directly to target dimensions
+            matrix.postScale(scaleX, scaleY)
+            // Translate to target position
             matrix.postTranslate(x, y)
-            // Then rotate around the center of the watermark
+            // Rotate around the target watermark center
             matrix.postRotate(rotation, x + targetWmWidth / 2f, y + targetWmHeight / 2f)
 
-            // Create scaled version
-            val scaledWm = Bitmap.createScaledBitmap(wmBitmap, targetWmWidth.toInt().coerceAtLeast(1), targetWmHeight.toInt().coerceAtLeast(1), true)
+            // Draw bitmap directly with Matrix transformation
+            canvas.drawBitmap(wmBitmap, matrix, paint)
 
-            // Draw
-            canvas.save()
-            canvas.concat(matrix)
-            // reset translate since it's already in matrix
-            canvas.drawBitmap(scaledWm, 0f, 0f, paint)
-            canvas.restore()
-
-            scaledWm.recycle()
             wmBitmap.recycle()
         }
 
