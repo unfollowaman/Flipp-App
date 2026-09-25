@@ -799,31 +799,6 @@ fun PdfToPngScreen(onBack: () -> Unit) {
     val pdfThumbnails = remember { mutableStateListOf<Bitmap>() }
     var tempZipFile by remember { mutableStateOf<File?>(null) }
 
-    val filePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri ->
-            if (uri != null) {
-                selectedPdfUri = uri
-                stage = 2
-                // Load thumbnails in stage background
-                coroutineScope.launch {
-                    pdfThumbnails.clear()
-                    val thumbs = withContext(Dispatchers.IO) {
-                        loadPdfThumbnails(context, uri, maxPages = 6)
-                    }
-                    if (thumbs.isEmpty()) {
-                        Toast.makeText(context, "Failed to load PDF. Is it a valid, non-encrypted file?", Toast.LENGTH_LONG).show()
-                        stage = 1
-                    } else {
-                        pdfThumbnails.addAll(thumbs)
-                    }
-                }
-            } else {
-                Toast.makeText(context, "Please select a PDF file.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    )
-
     // Saver contract
     val fileSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip"),
@@ -856,10 +831,27 @@ fun PdfToPngScreen(onBack: () -> Unit) {
     ) {
         when (stage) {
             1 -> {
-                DropZone(
-                    onBrowseClick = { filePicker.launch(arrayOf("application/pdf")) },
+                SingleFileDropZone(
+                    mimeTypes = arrayOf("application/pdf"),
                     prompt = "Please select a PDF file.",
-                    badgeColor = YellowColor
+                    badgeColor = YellowColor,
+                    onFileSelected = { uri ->
+                        selectedPdfUri = uri
+                        stage = 2
+                        // Load thumbnails in stage background
+                        coroutineScope.launch {
+                            pdfThumbnails.clear()
+                            val thumbs = withContext(Dispatchers.IO) {
+                                loadPdfThumbnails(context, uri, maxPages = 6)
+                            }
+                            if (thumbs.isEmpty()) {
+                                Toast.makeText(context, "Failed to load PDF. Is it a valid, non-encrypted file?", Toast.LENGTH_LONG).show()
+                                stage = 1
+                            } else {
+                                pdfThumbnails.addAll(thumbs)
+                            }
+                        }
+                    }
                 )
             }
             2 -> {
@@ -1597,32 +1589,6 @@ fun SplitPdfScreen(onBack: () -> Unit) {
     var progressVal by remember { mutableFloatStateOf(0f) }
     var tempPdfFile by remember { mutableStateOf<File?>(null) }
 
-    val filePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri ->
-            if (uri != null) {
-                selectedPdfUri = uri
-                coroutineScope.launch(Dispatchers.IO) {
-                    try {
-                        val pages = PdfUtils.getPdfPageCount(context, uri)
-                        totalPages = pages
-                        startPageStr = "1"
-                        endPageStr = pages.toString()
-                        withContext(Dispatchers.Main) {
-                            stage = 2
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Failed to load PDF. Is it a valid, non-encrypted file?", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                }
-            } else {
-                Toast.makeText(context, "Please select a PDF file.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    )
-
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
@@ -1654,10 +1620,28 @@ fun SplitPdfScreen(onBack: () -> Unit) {
     ) {
         when (stage) {
             1 -> {
-                DropZone(
-                    onBrowseClick = { filePicker.launch(arrayOf("application/pdf")) },
+                SingleFileDropZone(
+                    mimeTypes = arrayOf("application/pdf"),
                     prompt = "Extract specific page range into a separate file.",
-                    badgeColor = SkyBlueColor
+                    badgeColor = SkyBlueColor,
+                    onFileSelected = { uri ->
+                        selectedPdfUri = uri
+                        coroutineScope.launch(Dispatchers.IO) {
+                            try {
+                                val pages = PdfUtils.getPdfPageCount(context, uri)
+                                totalPages = pages
+                                startPageStr = "1"
+                                endPageStr = pages.toString()
+                                withContext(Dispatchers.Main) {
+                                    stage = 2
+                                }
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Failed to load PDF. Is it a valid, non-encrypted file?", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    }
                 )
             }
             2 -> {
@@ -1838,18 +1822,6 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
     var progressVal by remember { mutableFloatStateOf(0f) }
     var tempPdfFile by remember { mutableStateOf<File?>(null) }
 
-    val filePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri ->
-            if (uri != null) {
-                selectedPdfUri = uri
-                stage = 2
-            } else {
-                Toast.makeText(context, "Please select a PDF file.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    )
-
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
@@ -1881,10 +1853,14 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
     ) {
         when (stage) {
             1 -> {
-                DropZone(
-                    onBrowseClick = { filePicker.launch(arrayOf("application/pdf")) },
+                SingleFileDropZone(
+                    mimeTypes = arrayOf("application/pdf"),
                     prompt = "AES password-encrypt a PDF entirely on-device.",
-                    badgeColor = YellowColor
+                    badgeColor = YellowColor,
+                    onFileSelected = { uri ->
+                        selectedPdfUri = uri
+                        stage = 2
+                    }
                 )
             }
             2 -> {
@@ -2057,18 +2033,6 @@ fun AddPageNumScreen(onBack: () -> Unit) {
     var progressVal by remember { mutableFloatStateOf(0f) }
     var tempPdfFile by remember { mutableStateOf<File?>(null) }
 
-    val filePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri ->
-            if (uri != null) {
-                selectedPdfUri = uri
-                stage = 2
-            } else {
-                Toast.makeText(context, "Please select a PDF file.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    )
-
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
@@ -2102,10 +2066,14 @@ fun AddPageNumScreen(onBack: () -> Unit) {
     ) {
         when (stage) {
             1 -> {
-                DropZone(
-                    onBrowseClick = { filePicker.launch(arrayOf("application/pdf")) },
+                SingleFileDropZone(
+                    mimeTypes = arrayOf("application/pdf"),
                     prompt = "Stamp page numbers with customizable position and offset start page.",
-                    badgeColor = MintColor
+                    badgeColor = MintColor,
+                    onFileSelected = { uri ->
+                        selectedPdfUri = uri
+                        stage = 2
+                    }
                 )
             }
             2 -> {
@@ -2457,18 +2425,6 @@ fun AddWatermarkScreen(onBack: () -> Unit) {
     var progressVal by remember { mutableFloatStateOf(0f) }
     var tempResultFile by remember { mutableStateOf<File?>(null) }
 
-    val filePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
-        onResult = { uri ->
-            if (uri != null) {
-                selectedImageUri = uri
-                stage = 2
-            } else {
-                Toast.makeText(context, "Please select an image file.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    )
-
     val watermarkImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri ->
@@ -2512,10 +2468,15 @@ fun AddWatermarkScreen(onBack: () -> Unit) {
     ) {
         when (stage) {
             1 -> {
-                DropZone(
-                    onBrowseClick = { filePicker.launch(arrayOf("image/*")) },
+                SingleFileDropZone(
+                    mimeTypes = arrayOf("image/*"),
                     prompt = "Select an image to add a watermark.",
-                    badgeColor = MintColor
+                    badgeColor = MintColor,
+                    onCancelledMessage = "Please select an image file.",
+                    onFileSelected = { uri ->
+                        selectedImageUri = uri
+                        stage = 2
+                    }
                 )
             }
             2 -> {
@@ -2816,32 +2777,6 @@ fun PdfToTextScreen(onBack: () -> Unit) {
     var extractedText by rememberSaveable { mutableStateOf("") }
     var progressVal by remember { mutableFloatStateOf(0f) }
 
-    val filePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            selectedPdfUri = uri
-            stage = 2
-            progressVal = 0f
-            coroutineScope.launch(Dispatchers.IO) {
-                try {
-                    val text = PdfUtils.extractTextFromPdf(context, uri) { current, total ->
-                        progressVal = current.toFloat() / total.toFloat()
-                    }
-                    withContext(Dispatchers.Main) {
-                        extractedText = text
-                        stage = 3
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Failed to extract text. Is it a valid PDF?", Toast.LENGTH_LONG).show()
-                        stage = 1
-                    }
-                }
-            }
-        }
-    }
-
     val txtSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("text/plain"),
         onResult = { uri ->
@@ -2887,7 +2822,32 @@ fun PdfToTextScreen(onBack: () -> Unit) {
                         color = Color.Gray,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
-                    DropZone(onBrowseClick = { filePicker.launch(arrayOf("application/pdf")) })
+                    SingleFileDropZone(
+                        mimeTypes = arrayOf("application/pdf"),
+                        prompt = "Drag files here or",
+                        onCancelledMessage = "",
+                        onFileSelected = { uri ->
+                            selectedPdfUri = uri
+                            stage = 2
+                            progressVal = 0f
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try {
+                                    val text = PdfUtils.extractTextFromPdf(context, uri) { current, total ->
+                                        progressVal = current.toFloat() / total.toFloat()
+                                    }
+                                    withContext(Dispatchers.Main) {
+                                        extractedText = text
+                                        stage = 3
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Failed to extract text. Is it a valid PDF?", Toast.LENGTH_LONG).show()
+                                        stage = 1
+                                    }
+                                }
+                            }
+                        }
+                    )
                 }
             }
             2 -> {
