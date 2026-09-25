@@ -2,6 +2,7 @@ package com.example
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
 import com.itextpdf.text.Document
@@ -44,27 +45,40 @@ object PdfUtils {
             
             val zipOut = ZipOutputStream(outputStream)
             
-            for (i in 0 until pageCount) {
-                val page = renderer.openPage(i)
-                
-                // Scale width/height by resolution options (1x, 2x, 3x)
-                val width = page.width * scale
-                val height = page.height * scale
-                
-                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                
-                // Add to zip
-                val entry = ZipEntry("page_${i + 1}.png")
-                zipOut.putNextEntry(entry)
-                
-                bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
-                zipOut.closeEntry()
-                
-                page.close()
-                bitmap.recycle()
-                
-                onProgress(i + 1, pageCount)
+            var reusableBitmap: Bitmap? = null
+            try {
+                for (i in 0 until pageCount) {
+                    val page = renderer.openPage(i)
+
+                    // Scale width/height by resolution options (1x, 2x, 3x)
+                    val width = page.width * scale
+                    val height = page.height * scale
+
+                    val bitmap = if (reusableBitmap != null && reusableBitmap.width == width && reusableBitmap.height == height) {
+                        reusableBitmap.eraseColor(Color.TRANSPARENT)
+                        reusableBitmap
+                    } else {
+                        reusableBitmap?.recycle()
+                        Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+                            reusableBitmap = it
+                        }
+                    }
+
+                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+
+                    // Add to zip
+                    val entry = ZipEntry("page_${i + 1}.png")
+                    zipOut.putNextEntry(entry)
+
+                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
+                    zipOut.closeEntry()
+
+                    page.close()
+
+                    onProgress(i + 1, pageCount)
+                }
+            } finally {
+                reusableBitmap?.recycle()
             }
             zipOut.finish()
             zipOut.close()
