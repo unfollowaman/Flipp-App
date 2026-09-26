@@ -1879,7 +1879,7 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
                         modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Set Document Password (AES-128):", fontWeight = FontWeight.Bold)
+                            Text("Set Document Password (AES-256):", fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(8.dp))
                             
                             OutlinedTextField(
@@ -1937,7 +1937,7 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Text("🔐 Ready to encrypt PDF file", fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.height(8.dp))
-                            Text("Security Mode: 128-bit AES Encryption Block", fontSize = 14.sp)
+                            Text("Security Mode: 256-bit AES Encryption Block", fontSize = 14.sp)
                             Text("This password can never be retrieved by any servers. Save it carefully.", fontSize = 12.sp, color = RedColor, fontWeight = FontWeight.Bold)
                         }
                     }

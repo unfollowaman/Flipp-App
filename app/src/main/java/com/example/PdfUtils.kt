@@ -224,7 +224,7 @@ object PdfUtils {
     }
 
     /**
-     * Encrypts a PDF file using AES-128 password encryption.
+     * Encrypts a PDF file using AES-256 password encryption.
      */
     fun protectPdf(
         context: Context,
