@@ -2288,17 +2288,16 @@ fun ToolScreenTemplate(
                 .bottomBorder(2.dp, BlackColor)
                 .padding(horizontal = 16.dp)
         ) {
-            Box(
+            IconButton(
+                onClick = onBack,
                 modifier = Modifier
                     .size(36.dp)
                     .background(WhiteColor, RoundedCornerShape(6.dp))
                     .border(2.dp, BlackColor, RoundedCornerShape(6.dp))
-                    .clickable { onBack() },
-                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
+                    contentDescription = "Navigate back",
                     tint = BlackColor
                 )
             }
