@@ -388,20 +388,13 @@ object PdfUtils {
         }
     }
 
+    // Optimize: Use Kotlin's `readBytes()` on InputStream with `use` block.
+    // This reduces manual byte buffer copying overhead and ensures stream is safely closed.
     private fun readBytesFromUri(context: Context, uri: Uri): ByteArray? {
         return try {
-            val inputStream: InputStream? = context.contentResolver.openInputStream(uri)
-            val byteBuffer = ByteArrayOutputStream()
-            val bufferSize = 4096
-            val buffer = ByteArray(bufferSize)
-            var len: Int
-            if (inputStream != null) {
-                while (inputStream.read(buffer).also { len = it } != -1) {
-                    byteBuffer.write(buffer, 0, len)
-                }
-                inputStream.close()
-            }
-            byteBuffer.toByteArray()
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                inputStream.readBytes()
+            } ?: ByteArray(0)
         } catch (e: Exception) {
             null
         }
