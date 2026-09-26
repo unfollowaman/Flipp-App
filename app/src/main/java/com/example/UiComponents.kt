@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -185,14 +186,13 @@ fun TopNavbar(
         }
         
         // Circular privacy Settings-like Cog button from the design HTML
-        Box(
+        IconButton(
+            onClick = onPrivacyClick,
             modifier = Modifier
                 .size(40.dp)
                 .background(CreamColor, RoundedCornerShape(20.dp))
                 .border(2.dp, BlackColor, RoundedCornerShape(20.dp))
-                .clickable { onPrivacyClick() }
-                .testTag("privacy_navbar_button"),
-            contentAlignment = Alignment.Center
+                .testTag("privacy_navbar_button")
         ) {
             Icon(
                 imageVector = Icons.Default.Lock,

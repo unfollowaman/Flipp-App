@@ -43,8 +43,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -2288,17 +2288,16 @@ fun ToolScreenTemplate(
                 .bottomBorder(2.dp, BlackColor)
                 .padding(horizontal = 16.dp)
         ) {
-            Box(
+            IconButton(
+                onClick = onBack,
                 modifier = Modifier
                     .size(36.dp)
                     .background(WhiteColor, RoundedCornerShape(6.dp))
                     .border(2.dp, BlackColor, RoundedCornerShape(6.dp))
-                    .clickable { onBack() },
-                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Navigate back",
                     tint = BlackColor
                 )
             }
