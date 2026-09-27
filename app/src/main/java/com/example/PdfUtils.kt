@@ -43,7 +43,8 @@ object PdfUtils {
             val renderer = PdfRenderer(pfd)
             val pageCount = renderer.pageCount
             
-            val zipOut = ZipOutputStream(outputStream)
+            // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PNG compression
+            val zipOut = ZipOutputStream(outputStream.buffered())
             
             var reusableBitmap: Bitmap? = null
             try {
@@ -180,6 +181,8 @@ object PdfUtils {
             for (p in 1..numPages) {
                 copy.addPage(copy.getImportedPage(reader, p))
             }
+            // Optimize memory: Free reader internal objects in PdfCopy after importing pages to allow early GC
+            copy.freeReader(reader)
             reader.close()
             inputStream.close()
             onProgress(index + 1, total)
