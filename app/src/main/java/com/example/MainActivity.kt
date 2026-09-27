@@ -1193,49 +1193,50 @@ fun ImagesToPdfScreen(onBack: () -> Unit) {
                                 )
                                 
                                 // UP arrow
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowUp,
-                                    contentDescription = "Move Up",
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clickable(enabled = index > 0) {
-                                            val current = selectedImageUris[index]
-                                            selectedImageUris.removeAt(index)
-                                            selectedImageUris.add(index - 1, current)
-                                        }
-                                )
-                                
-                                Spacer(modifier = Modifier.width(4.dp))
-                                
+                                IconButton(
+                                    onClick = {
+                                        val current = selectedImageUris[index]
+                                        selectedImageUris.removeAt(index)
+                                        selectedImageUris.add(index - 1, current)
+                                    },
+                                    enabled = index > 0
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowUp,
+                                        contentDescription = "Move page up"
+                                    )
+                                }
+
                                 // DOWN arrow
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = "Move Down",
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clickable(enabled = index < selectedImageUris.size - 1) {
-                                            val current = selectedImageUris[index]
-                                            selectedImageUris.removeAt(index)
-                                            selectedImageUris.add(index + 1, current)
-                                        }
-                                )
-                                
-                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = {
+                                        val current = selectedImageUris[index]
+                                        selectedImageUris.removeAt(index)
+                                        selectedImageUris.add(index + 1, current)
+                                    },
+                                    enabled = index < selectedImageUris.size - 1
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Move page down"
+                                    )
+                                }
 
                                 // Remove Trash icon
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Remove",
-                                    tint = RedColor,
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clickable {
-                                            selectedImageUris.removeAt(index)
-                                            if (selectedImageUris.isEmpty()) {
-                                                stage = 1
-                                            }
+                                IconButton(
+                                    onClick = {
+                                        selectedImageUris.removeAt(index)
+                                        if (selectedImageUris.isEmpty()) {
+                                            stage = 1
                                         }
-                                )
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Remove page",
+                                        tint = RedColor
+                                    )
+                                }
                             }
                         }
                     }
@@ -1446,43 +1447,48 @@ fun MergePdfScreen(onBack: () -> Unit) {
                                     )
                                 }
                                 
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowUp,
-                                    contentDescription = "Move Up",
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clickable(enabled = index > 0) {
-                                            val cur = selectedPdfUris[index]
-                                            selectedPdfUris.removeAt(index)
-                                            selectedPdfUris.add(index - 1, cur)
-                                        }
-                                )
-                                
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = "Move Down",
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .clickable(enabled = index < selectedPdfUris.size - 1) {
-                                            val cur = selectedPdfUris[index]
-                                            selectedPdfUris.removeAt(index)
-                                            selectedPdfUris.add(index + 1, cur)
-                                        }
-                                )
+                                IconButton(
+                                    onClick = {
+                                        val cur = selectedPdfUris[index]
+                                        selectedPdfUris.removeAt(index)
+                                        selectedPdfUris.add(index - 1, cur)
+                                    },
+                                    enabled = index > 0
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowUp,
+                                        contentDescription = "Move PDF up"
+                                    )
+                                }
 
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Remove",
-                                    tint = RedColor,
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clickable {
-                                            selectedPdfUris.removeAt(index)
-                                            if (selectedPdfUris.isEmpty()) {
-                                                stage = 1
-                                            }
+                                IconButton(
+                                    onClick = {
+                                        val cur = selectedPdfUris[index]
+                                        selectedPdfUris.removeAt(index)
+                                        selectedPdfUris.add(index + 1, cur)
+                                    },
+                                    enabled = index < selectedPdfUris.size - 1
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.KeyboardArrowDown,
+                                        contentDescription = "Move PDF down"
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = {
+                                        selectedPdfUris.removeAt(index)
+                                        if (selectedPdfUris.isEmpty()) {
+                                            stage = 1
                                         }
-                                )
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Remove PDF",
+                                        tint = RedColor
+                                    )
+                                }
                             }
                         }
                     }
