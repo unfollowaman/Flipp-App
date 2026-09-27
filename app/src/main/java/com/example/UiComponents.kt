@@ -6,7 +6,9 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -96,6 +98,7 @@ fun BrutalistShadowBox(
                     .clickable(
                         interactionSource = interactionSource,
                         indication = null,
+                        role = Role.Button,
                         onClick = onClick
                     ),
                 content = content
@@ -467,6 +470,7 @@ fun StageProgressBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(10.dp)
+                    .progressSemantics(progress.coerceIn(0f, 1f))
                     .background(WhiteColor, RoundedCornerShape(99.dp))
                     .border(2.dp, BlackColor, RoundedCornerShape(99.dp))
             ) {
