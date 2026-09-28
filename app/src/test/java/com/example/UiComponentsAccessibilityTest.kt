@@ -50,4 +50,18 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onNodeWithText("Processing...")
             .assertExists()
     }
+
+    @Test
+    fun dropZoneHasButtonAccessibilityRole() {
+        var clicked = false
+        composeTestRule.setContent {
+            DropZone(
+                onBrowseClick = { clicked = true },
+                prompt = "Upload files"
+            )
+        }
+
+        composeTestRule.onNodeWithText("Upload files", substring = true)
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
 }
