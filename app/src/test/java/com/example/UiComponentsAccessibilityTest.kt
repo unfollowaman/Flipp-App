@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.hasProgressBarRangeInfo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -34,6 +35,19 @@ class UiComponentsAccessibilityTest {
 
         composeTestRule.onNodeWithTag("test_button")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun dropZoneHasButtonAccessibilityRole() {
+        composeTestRule.setContent {
+            DropZone(
+                onBrowseClick = {},
+                prompt = "Drag files here or"
+            )
+        }
+
+        composeTestRule.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertCountEquals(2) // Outer DropZone container + inner browse button
     }
 
     @Test
