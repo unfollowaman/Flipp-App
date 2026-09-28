@@ -338,7 +338,7 @@ fun DropZone(
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())
                 )
             }
-            .clickable { onBrowseClick() }
+            .clickable(role = Role.Button, onClick = onBrowseClick)
     ) {
         Column(
             modifier = Modifier
