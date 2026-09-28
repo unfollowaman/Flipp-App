@@ -21,6 +21,7 @@ import com.itextpdf.text.pdf.parser.PdfTextExtractor
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -45,6 +46,9 @@ object PdfUtils {
             
             // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PNG compression
             val zipOut = ZipOutputStream(outputStream.buffered())
+            // Optimize compression CPU overhead: PNG images are already compressed via zlib PNG encoding.
+            // Setting NO_COMPRESSION bypasses redundant second-pass zlib DEFLATE re-compression in ZipOutputStream.
+            zipOut.setLevel(Deflater.NO_COMPRESSION)
             
             var reusableBitmap: Bitmap? = null
             try {
