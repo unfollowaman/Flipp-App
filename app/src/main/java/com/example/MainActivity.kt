@@ -1148,231 +1148,275 @@ fun ImagesToPdfScreen(onBack: () -> Unit) {
                 )
             }
             2 -> {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Document Settings",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BlackColor,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    
-                    BrutalistShadowBox(
-                        backgroundColor = CreamColor,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Page Layout Size:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            listOf("AUTO", "A4", "LETTER").forEach { size ->
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.clickable { pageSizeSelection = size }
-                                ) {
-                                    RadioButton(
-                                        selected = pageSizeSelection == size,
-                                        onClick = { pageSizeSelection = size },
-                                        colors = RadioButtonDefaults.colors(selectedColor = BlackColor)
-                                    )
-                                    Text(size, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                    
-                    BrutalistButton(
-                        text = "Proceed to Alignment ➜",
-                        onClick = { stage = 3 },
-                        backgroundColor = PinkColor
-                    )
-                }
+                ImagesToPdfSettingsStage(
+                    pageSizeSelection = pageSizeSelection,
+                    onPageSizeSelectionChange = { pageSizeSelection = it },
+                    onNext = { stage = 3 }
+                )
             }
             3 -> {
-                // Ordering & Preview
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Arrange Page Sequence (${selectedImageUris.size} images)",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BlackColor,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(240.dp)
-                            .padding(bottom = 16.dp)
-                    ) {
-                        itemsIndexed(selectedImageUris) { index, uri ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .background(CreamColor, RoundedCornerShape(8.dp))
-                                    .border(1.5.dp, BlackColor, RoundedCornerShape(8.dp))
-                                    .padding(8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Thumbnail display
-                                val bmp = imageThumbnailsMap[uri]
-                                if (bmp != null) {
-                                    Image(
-                                        bitmap = bmp.asImageBitmap(),
-                                        contentDescription = "Thumbnail",
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .border(1.dp, BlackColor, RoundedCornerShape(4.dp))
-                                    )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(48.dp)
-                                            .background(WhiteColor)
-                                            .border(1.dp, BlackColor, RoundedCornerShape(4.dp))
-                                    )
-                                }
+                ImagesToPdfAlignmentStage(
+                    selectedImageUris = selectedImageUris,
+                    imageThumbnailsMap = imageThumbnailsMap,
+                    onMoveUp = { index ->
+                        val current = selectedImageUris[index]
+                        selectedImageUris.removeAt(index)
+                        selectedImageUris.add(index - 1, current)
+                    },
+                    onMoveDown = { index ->
+                        val current = selectedImageUris[index]
+                        selectedImageUris.removeAt(index)
+                        selectedImageUris.add(index + 1, current)
+                    },
+                    onRemove = { index ->
+                        selectedImageUris.removeAt(index)
+                        if (selectedImageUris.isEmpty()) {
+                            stage = 1
+                        }
+                    },
+                    onAddMoreImages = { filePicker.launch(arrayOf("image/*")) },
+                    onConvertAllPages = {
+                        stage = 4
+                        progressVal = 0.2f
+                        progressLabel = "Packing images..."
+                        coroutineScope.launch(Dispatchers.IO) {
+                            try {
+                                val tempFile = File.createTempFile("combined_pdf_", ".pdf", context.cacheDir)
+                                tempPdfFile = tempFile
                                 
-                                Spacer(modifier = Modifier.width(12.dp))
-                                
-                                Text(
-                                    text = "Page ${index + 1}",
-                                    fontWeight = FontWeight.Bold,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                
-                                // UP arrow
-                                IconButton(
-                                    onClick = {
-                                        val current = selectedImageUris[index]
-                                        selectedImageUris.removeAt(index)
-                                        selectedImageUris.add(index - 1, current)
-                                    },
-                                    enabled = index > 0
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowUp,
-                                        contentDescription = "Move page up"
-                                    )
+                                val fos = FileOutputStream(tempFile)
+                                PdfUtils.combineImagesToPdf(
+                                    context = context,
+                                    imageUris = selectedImageUris.toList(),
+                                    pageSizeOption = pageSizeSelection,
+                                    outputStream = fos
+                                ) { current, total ->
+                                    progressVal = current.toFloat() / total
+                                    progressLabel = "Adding image $current of $total... (${(progressVal * 100).toInt()}%)"
                                 }
 
-                                // DOWN arrow
-                                IconButton(
-                                    onClick = {
-                                        val current = selectedImageUris[index]
-                                        selectedImageUris.removeAt(index)
-                                        selectedImageUris.add(index + 1, current)
-                                    },
-                                    enabled = index < selectedImageUris.size - 1
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.KeyboardArrowDown,
-                                        contentDescription = "Move page down"
-                                    )
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Processing complete!", Toast.LENGTH_SHORT).show()
+                                    stage = 5
                                 }
-
-                                // Remove Trash icon
-                                IconButton(
-                                    onClick = {
-                                        selectedImageUris.removeAt(index)
-                                        if (selectedImageUris.isEmpty()) {
-                                            stage = 1
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Delete,
-                                        contentDescription = "Remove page",
-                                        tint = RedColor
-                                    )
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Encryption/Packing failed: ${e.message}", Toast.LENGTH_LONG).show()
+                                    stage = 1
                                 }
                             }
                         }
                     }
-
-                    // Add more files button inside alignment stage
-                    BrutalistButton(
-                        text = "+ Add More Images",
-                        onClick = { filePicker.launch(arrayOf("image/*")) },
-                        backgroundColor = WhiteColor,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    BrutalistButton(
-                        text = "Convert All Pages →",
-                        onClick = {
-                            stage = 4
-                            progressVal = 0.2f
-                            progressLabel = "Packing images..."
-                            coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    val tempFile = File.createTempFile("combined_pdf_", ".pdf", context.cacheDir)
-                                    tempPdfFile = tempFile
-                                    
-                                    val fos = FileOutputStream(tempFile)
-                                    PdfUtils.combineImagesToPdf(
-                                        context = context,
-                                        imageUris = selectedImageUris.toList(),
-                                        pageSizeOption = pageSizeSelection,
-                                        outputStream = fos
-                                    ) { current, total ->
-                                        progressVal = current.toFloat() / total
-                                        progressLabel = "Adding image $current of $total... (${(progressVal * 100).toInt()}%)"
-                                    }
-                                    
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Processing complete!", Toast.LENGTH_SHORT).show()
-                                        stage = 5
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Encryption/Packing failed: ${e.message}", Toast.LENGTH_LONG).show()
-                                        stage = 1
-                                    }
-                                }
-                            }
-                        },
-                        backgroundColor = PinkColor
-                    )
-                }
+                )
             }
             4 -> {
                 StageProgressBar(progress = progressVal, label = progressLabel)
             }
             5 -> {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                ImagesToPdfSuccessStage(
+                    onDownload = { pdfSaver.launch("combined_document.pdf") },
+                    onCreateAnother = {
+                        selectedImageUris.clear()
+                        imageThumbnailsMap.clear()
+                        tempPdfFile = null
+                        stage = 1
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImagesToPdfAlignmentStage(
+    selectedImageUris: List<Uri>,
+    imageThumbnailsMap: Map<Uri, Bitmap>,
+    onMoveUp: (Int) -> Unit,
+    onMoveDown: (Int) -> Unit,
+    onRemove: (Int) -> Unit,
+    onAddMoreImages: () -> Unit,
+    onConvertAllPages: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Arrange Page Sequence (${selectedImageUris.size} images)",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = BlackColor,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(240.dp)
+                .padding(bottom = 16.dp)
+        ) {
+            itemsIndexed(selectedImageUris) { index, uri ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .background(CreamColor, RoundedCornerShape(8.dp))
+                        .border(1.5.dp, BlackColor, RoundedCornerShape(8.dp))
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Thumbnail display
+                    val bmp = imageThumbnailsMap[uri]
+                    if (bmp != null) {
+                        Image(
+                            bitmap = bmp.asImageBitmap(),
+                            contentDescription = "Thumbnail",
+                            modifier = Modifier
+                                .size(48.dp)
+                                .border(1.dp, BlackColor, RoundedCornerShape(4.dp))
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(WhiteColor)
+                                .border(1.dp, BlackColor, RoundedCornerShape(4.dp))
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
                     Text(
-                        text = "🎉 PDF Compiled!",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = BlackColor,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        text = "Page ${index + 1}",
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
                     )
-                    
-                    BrutalistButton(
-                        text = "Download Combined PDF 📁",
-                        onClick = { pdfSaver.launch("combined_document.pdf") },
-                        backgroundColor = MintColor
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    BrutalistButton(
-                        text = "Convert another file ↺",
-                        onClick = {
-                            selectedImageUris.clear()
-                            imageThumbnailsMap.clear()
-                            tempPdfFile = null
-                            stage = 1
-                        },
-                        backgroundColor = PinkColor
-                    )
+
+                    // UP arrow
+                    IconButton(
+                        onClick = { onMoveUp(index) },
+                        enabled = index > 0
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Move page up"
+                        )
+                    }
+
+                    // DOWN arrow
+                    IconButton(
+                        onClick = { onMoveDown(index) },
+                        enabled = index < selectedImageUris.size - 1
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Move page down"
+                        )
+                    }
+
+                    // Remove Trash icon
+                    IconButton(
+                        onClick = { onRemove(index) }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Remove page",
+                            tint = RedColor
+                        )
+                    }
                 }
             }
         }
+
+        // Add more files button inside alignment stage
+        BrutalistButton(
+            text = "+ Add More Images",
+            onClick = onAddMoreImages,
+            backgroundColor = WhiteColor,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        BrutalistButton(
+            text = "Convert All Pages →",
+            onClick = onConvertAllPages,
+            backgroundColor = PinkColor
+        )
+    }
+}
+
+@Composable
+private fun ImagesToPdfSuccessStage(
+    onDownload: () -> Unit,
+    onCreateAnother: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "🎉 PDF Compiled!",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = BlackColor,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        BrutalistButton(
+            text = "Download Combined PDF 📁",
+            onClick = onDownload,
+            backgroundColor = MintColor
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        BrutalistButton(
+            text = "Convert another file ↺",
+            onClick = onCreateAnother,
+            backgroundColor = PinkColor
+        )
+    }
+}
+
+@Composable
+private fun ImagesToPdfSettingsStage(
+    pageSizeSelection: String,
+    onPageSizeSelectionChange: (String) -> Unit,
+    onNext: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Document Settings",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = BlackColor,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        BrutalistShadowBox(
+            backgroundColor = CreamColor,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Page Layout Size:", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                listOf("AUTO", "A4", "LETTER").forEach { size ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { onPageSizeSelectionChange(size) }
+                    ) {
+                        RadioButton(
+                            selected = pageSizeSelection == size,
+                            onClick = { onPageSizeSelectionChange(size) },
+                            colors = RadioButtonDefaults.colors(selectedColor = BlackColor)
+                        )
+                        Text(size, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        BrutalistButton(
+            text = "Proceed to Alignment ➜",
+            onClick = onNext,
+            backgroundColor = PinkColor
+        )
     }
 }
 
