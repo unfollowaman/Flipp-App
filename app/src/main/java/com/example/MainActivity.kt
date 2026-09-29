@@ -190,6 +190,7 @@ fun TextToPdfScreen(onBack: () -> Unit) {
                     OutlinedTextField(
                         value = textInput,
                         onValueChange = { textInput = it },
+                        placeholder = { Text("Type or paste your text here...", color = Color.Gray) },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp)
