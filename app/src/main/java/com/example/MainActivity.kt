@@ -179,234 +179,283 @@ fun TextToPdfScreen(onBack: () -> Unit) {
     ) {
         when (stage) {
             1 -> {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        text = "Enter your text:",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BlackColor,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    OutlinedTextField(
-                        value = textInput,
-                        onValueChange = { textInput = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "${textInput.length} characters",
-                        fontSize = 12.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.align(Alignment.End)
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        BrutalistButton(
-                            text = "Clear",
-                            onClick = { textInput = "" },
-                            backgroundColor = PinkColor
-                        )
-                        BrutalistButton(
-                            text = "Next ➔",
-                            onClick = {
-                                if (textInput.isNotBlank()) {
-                                    stage = 2
-                                } else {
-                                    Toast.makeText(context, "Please enter some text.", Toast.LENGTH_SHORT).show()
-                                }
-                            },
-                            backgroundColor = MintColor
-                        )
+                TextToPdfInputStage(
+                    textInput = textInput,
+                    onTextInputChange = { textInput = it },
+                    onNext = {
+                        if (textInput.isNotBlank()) {
+                            stage = 2
+                        } else {
+                            Toast.makeText(context, "Please enter some text.", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                }
+                )
             }
             2 -> {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    // Page Size Selection
-                    Text("Page Size:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("A4", "LETTER").forEach { option ->
-                            BrutalistButton(
-                                text = option,
-                                onClick = { pageSizeSelection = option },
-                                backgroundColor = if (pageSizeSelection == option) MintColor else WhiteColor,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Margins Option Selection
-                    Text("Margins:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("small", "normal", "large").forEach { option ->
-                            BrutalistButton(
-                                text = option.capitalize(),
-                                onClick = { marginOption = option },
-                                backgroundColor = if (marginOption == option) MintColor else WhiteColor,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Alignment Option Selection
-                    Text("Alignment:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        listOf("left", "center", "right", "justified").forEach { option ->
-                            BrutalistButton(
-                                text = option.capitalize(),
-                                onClick = { alignment = option },
-                                backgroundColor = if (alignment == option) MintColor else WhiteColor,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Font Size Input
-                    Text(text = "Font Size:", fontWeight = FontWeight.Bold)
-                    OutlinedTextField(
-                        value = fontSizeStr,
-                        onValueChange = { if (it.all { char -> char.isDigit() }) fontSizeStr = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
-                            .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color.Transparent,
-                            unfocusedBorderColor = Color.Transparent
-                        )
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        BrutalistButton(
-                            text = "Back",
-                            onClick = { stage = 1 },
-                            backgroundColor = YellowColor
-                        )
-                        BrutalistButton(
-                            text = "Generate PDF ➔",
-                            onClick = {
-                                val size = fontSizeStr.toFloatOrNull()
-                                if (size != null && size > 0) {
-                                    stage = 3
-                                    progressVal = 0.5f // Indeterminate-like progress
-                                    coroutineScope.launch(Dispatchers.IO) {
-                                        try {
-                                            val marginFloat = when(marginOption) {
-                                                "small" -> 18f
-                                                "normal" -> 36f
-                                                "large" -> 72f
-                                                else -> 36f
-                                            }
-
-                                            val cacheDir = context.cacheDir
-                                            val file = File(cacheDir, "text_generated.pdf")
-                                            val fileOut = FileOutputStream(file)
-                                            PdfUtils.textToPdf(
-                                                context = context,
-                                                text = textInput,
-                                                pageSizeOption = pageSizeSelection,
-                                                fontSize = size,
-                                                margin = marginFloat,
-                                                alignment = alignment,
-                                                outputStream = fileOut
-                                            )
-                                            fileOut.close()
-
-                                            withContext(Dispatchers.Main) {
-                                                progressVal = 1f
-                                                tempPdfFile = file
-                                                stage = 4
-                                            }
-                                        } catch (e: Exception) {
-                                            withContext(Dispatchers.Main) {
-                                                Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
-                                                stage = 2
-                                            }
-                                        }
+                TextToPdfConfigStage(
+                    pageSizeSelection = pageSizeSelection,
+                    onPageSizeSelectionChange = { pageSizeSelection = it },
+                    marginOption = marginOption,
+                    onMarginOptionChange = { marginOption = it },
+                    alignment = alignment,
+                    onAlignmentChange = { alignment = it },
+                    fontSizeStr = fontSizeStr,
+                    onFontSizeStrChange = { fontSizeStr = it },
+                    onBack = { stage = 1 },
+                    onGeneratePdf = {
+                        val size = fontSizeStr.toFloatOrNull()
+                        if (size != null && size > 0) {
+                            stage = 3
+                            progressVal = 0.5f // Indeterminate-like progress
+                            coroutineScope.launch(Dispatchers.IO) {
+                                try {
+                                    val marginFloat = when(marginOption) {
+                                        "small" -> 18f
+                                        "normal" -> 36f
+                                        "large" -> 72f
+                                        else -> 36f
                                     }
-                                } else {
-                                    Toast.makeText(context, "Please enter a valid font size.", Toast.LENGTH_SHORT).show()
+
+                                    val cacheDir = context.cacheDir
+                                    val file = File(cacheDir, "text_generated.pdf")
+                                    val fileOut = FileOutputStream(file)
+                                    PdfUtils.textToPdf(
+                                        context = context,
+                                        text = textInput,
+                                        pageSizeOption = pageSizeSelection,
+                                        fontSize = size,
+                                        margin = marginFloat,
+                                        alignment = alignment,
+                                        outputStream = fileOut
+                                    )
+                                    fileOut.close()
+
+                                    withContext(Dispatchers.Main) {
+                                        progressVal = 1f
+                                        tempPdfFile = file
+                                        stage = 4
+                                    }
+                                } catch (e: Exception) {
+                                    withContext(Dispatchers.Main) {
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+                                        stage = 2
+                                    }
                                 }
-                            },
-                            backgroundColor = MintColor
-                        )
+                            }
+                        } else {
+                            Toast.makeText(context, "Please enter a valid font size.", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                }
+                )
             }
             3 -> {
                 StageProgressBar(progress = progressVal, label = "Generating PDF...")
             }
             4 -> {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "🎉 PDF Generated Successfully!",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = BlackColor,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        textAlign = TextAlign.Center
-                    )
-
-                    BrutalistButton(
-                        text = "Download PDF 📁",
-                        backgroundColor = YellowColor,
-                        onClick = { pdfSaver.launch("text_generated.pdf") }
-                    )
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // No Share PDF feature in the other parts of the app either, remove for consistency.
-
-                    BrutalistButton(
-                        text = "Create Another ↺",
-                        onClick = {
-                            tempPdfFile?.delete()
-                            textInput = ""
-                            tempPdfFile = null
-                            stage = 1
-                        },
-                        backgroundColor = MintColor
-                    )
-                }
+                TextToPdfSuccessStage(
+                    onDownload = { pdfSaver.launch("text_generated.pdf") },
+                    onCreateAnother = {
+                        tempPdfFile?.delete()
+                        textInput = ""
+                        tempPdfFile = null
+                        stage = 1
+                    }
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun TextToPdfInputStage(
+    textInput: String,
+    onTextInputChange: (String) -> Unit,
+    onNext: () -> Unit
+) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Text(
+            text = "Enter your text:",
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            color = BlackColor,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = textInput,
+            onValueChange = onTextInputChange,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent
+            )
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "${textInput.length} characters",
+            fontSize = 12.sp,
+            color = Color.Gray,
+            modifier = Modifier.align(Alignment.End)
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            BrutalistButton(
+                text = "Clear",
+                onClick = { onTextInputChange("") },
+                backgroundColor = PinkColor
+            )
+            BrutalistButton(
+                text = "Next ➔",
+                onClick = onNext,
+                backgroundColor = MintColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun TextToPdfConfigStage(
+    pageSizeSelection: String,
+    onPageSizeSelectionChange: (String) -> Unit,
+    marginOption: String,
+    onMarginOptionChange: (String) -> Unit,
+    alignment: String,
+    onAlignmentChange: (String) -> Unit,
+    fontSizeStr: String,
+    onFontSizeStrChange: (String) -> Unit,
+    onBack: () -> Unit,
+    onGeneratePdf: () -> Unit
+) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        // Page Size Selection
+        Text("Page Size:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("A4", "LETTER").forEach { option ->
+                BrutalistButton(
+                    text = option,
+                    onClick = { onPageSizeSelectionChange(option) },
+                    backgroundColor = if (pageSizeSelection == option) MintColor else WhiteColor,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Margins Option Selection
+        Text("Margins:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("small", "normal", "large").forEach { option ->
+                BrutalistButton(
+                    text = option.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+                    onClick = { onMarginOptionChange(option) },
+                    backgroundColor = if (marginOption == option) MintColor else WhiteColor,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Alignment Option Selection
+        Text("Alignment:", fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("left", "center", "right", "justified").forEach { option ->
+                BrutalistButton(
+                    text = option.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() },
+                    onClick = { onAlignmentChange(option) },
+                    backgroundColor = if (alignment == option) MintColor else WhiteColor,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Font Size Input
+        Text(text = "Font Size:", fontWeight = FontWeight.Bold)
+        OutlinedTextField(
+            value = fontSizeStr,
+            onValueChange = { if (it.all { char -> char.isDigit() }) onFontSizeStrChange(it) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp)
+                .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent
+            )
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            BrutalistButton(
+                text = "Back",
+                onClick = onBack,
+                backgroundColor = YellowColor
+            )
+            BrutalistButton(
+                text = "Generate PDF ➔",
+                onClick = onGeneratePdf,
+                backgroundColor = MintColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun TextToPdfSuccessStage(
+    onDownload: () -> Unit,
+    onCreateAnother: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "🎉 PDF Generated Successfully!",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = BlackColor,
+            modifier = Modifier.padding(bottom = 8.dp),
+            textAlign = TextAlign.Center
+        )
+
+        BrutalistButton(
+            text = "Download PDF 📁",
+            backgroundColor = YellowColor,
+            onClick = onDownload
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        BrutalistButton(
+            text = "Create Another ↺",
+            onClick = onCreateAnother,
+            backgroundColor = MintColor
+        )
     }
 }
 
