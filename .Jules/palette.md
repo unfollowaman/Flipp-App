@@ -5,3 +5,7 @@
 ## 2026-03-31 - Navigation Icon Buttons Accessibility in Jetpack Compose
 **Learning:** Custom styled icon buttons in Jetpack Compose built with `Box` + `Modifier.clickable` lack proper `Role.Button` accessibility semantics and minimum 48dp touch target expansion. Using Material 3 `IconButton` ensures standard button semantics for screen readers and automatic touch target handling while retaining custom brutalist border/background styling.
 **Action:** Replace `Box` + `Modifier.clickable` on icon-only navigation buttons with `IconButton`.
+
+## 2026-03-31 - Option Selection Grids Accessibility in Jetpack Compose
+**Learning:** Custom selection option grids built with `Box` + `Modifier.clickable` fail to communicate selection state (`selected` / `not selected`) and control type to screen readers. Replacing `.clickable` with `Modifier.selectable(selected = isSelected, role = Role.RadioButton, onClick = ...)` exposes `selected` state and `Role.RadioButton` accessibility semantics.
+**Action:** Use `Modifier.selectable` instead of `.clickable` on custom selection option grids and toggle items.
