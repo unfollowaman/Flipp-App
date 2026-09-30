@@ -19,6 +19,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1296,7 +1298,7 @@ private fun ImagesToPdfAlignmentStage(
                     ) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowUp,
-                            contentDescription = "Move page up"
+                            contentDescription = "Move page ${index + 1} up"
                         )
                     }
 
@@ -1307,7 +1309,7 @@ private fun ImagesToPdfAlignmentStage(
                     ) {
                         Icon(
                             imageVector = Icons.Default.KeyboardArrowDown,
-                            contentDescription = "Move page down"
+                            contentDescription = "Move page ${index + 1} down"
                         )
                     }
 
@@ -1317,7 +1319,7 @@ private fun ImagesToPdfAlignmentStage(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
-                            contentDescription = "Remove page",
+                            contentDescription = "Remove page ${index + 1}",
                             tint = RedColor
                         )
                     }
@@ -1550,7 +1552,7 @@ fun MergePdfScreen(onBack: () -> Unit) {
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowUp,
-                                        contentDescription = "Move PDF up"
+                                        contentDescription = "Move PDF ${index + 1} up"
                                     )
                                 }
 
@@ -1564,7 +1566,7 @@ fun MergePdfScreen(onBack: () -> Unit) {
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.KeyboardArrowDown,
-                                        contentDescription = "Move PDF down"
+                                        contentDescription = "Move PDF ${index + 1} down"
                                     )
                                 }
 
@@ -1578,7 +1580,7 @@ fun MergePdfScreen(onBack: () -> Unit) {
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
-                                        contentDescription = "Remove PDF",
+                                        contentDescription = "Remove PDF ${index + 1}",
                                         tint = RedColor
                                     )
                                 }
@@ -2235,7 +2237,11 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                                                         BlackColor,
                                                         RoundedCornerShape(6.dp)
                                                     )
-                                                    .clickable { position = posItem.first }
+                                                    .selectable(
+                                                        selected = isSelected,
+                                                        role = Role.RadioButton,
+                                                        onClick = { position = posItem.first }
+                                                    )
                                                     .padding(4.dp),
                                                 contentAlignment = Alignment.Center
                                             ) {
@@ -2758,7 +2764,11 @@ private fun WatermarkSettingsStage(
                                 modifier = Modifier
                                     .background(if (isSelected) MintColor else WhiteColor, RoundedCornerShape(8.dp))
                                     .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
-                                    .clickable { onTextColorHexChange(color.first) }
+                                    .selectable(
+                                        selected = isSelected,
+                                        role = Role.RadioButton,
+                                        onClick = { onTextColorHexChange(color.first) }
+                                    )
                                     .padding(8.dp),
                                 contentAlignment = Alignment.Center
                             ) {
@@ -2839,7 +2849,11 @@ private fun WatermarkSettingsStage(
                             modifier = Modifier
                                 .background(if (isSelected) MintColor else WhiteColor, RoundedCornerShape(8.dp))
                                 .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
-                                .clickable { onPositionChange(pos.first) }
+                                .selectable(
+                                    selected = isSelected,
+                                    role = Role.RadioButton,
+                                    onClick = { onPositionChange(pos.first) }
+                                )
                                 .padding(12.dp),
                             contentAlignment = Alignment.Center
                         ) {

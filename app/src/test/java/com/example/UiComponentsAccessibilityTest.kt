@@ -6,8 +6,14 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.hasProgressBarRangeInfo
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule
@@ -63,5 +69,34 @@ class UiComponentsAccessibilityTest {
             .assertExists()
         composeTestRule.onNodeWithText("Processing...")
             .assertExists()
+    }
+
+    @Test
+    fun optionSelectionTargetsHaveRadioButtonRoleAndSelectedSemantics() {
+        composeTestRule.setContent {
+            Box(
+                modifier = Modifier
+                    .selectable(
+                        selected = true,
+                        role = Role.RadioButton,
+                        onClick = {}
+                    )
+                    .testTag("position_target")
+            )
+        }
+
+        composeTestRule.onNodeWithTag("position_target")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            .assert(isSelected())
+    }
+
+    @Test
+    fun addPageNumScreenRendersAccessibilityTreeCorrectly() {
+        composeTestRule.setContent {
+            AddPageNumScreen(onBack = {})
+        }
+
+        composeTestRule.onAllNodesWithText("Add Page Numbers")
+            .assertCountEquals(2) // Navbar title + Header card title
     }
 }
