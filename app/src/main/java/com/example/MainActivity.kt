@@ -925,10 +925,17 @@ fun PdfToPngScreen(onBack: () -> Unit) {
                             Spacer(modifier = Modifier.height(8.dp))
                             Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                                 listOf(1, 2, 3).forEach { scale ->
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.selectable(
+                                            selected = scaleOption == scale,
+                                            role = Role.RadioButton,
+                                            onClick = { scaleOption = scale }
+                                        )
+                                    ) {
                                         RadioButton(
                                             selected = scaleOption == scale,
-                                            onClick = { scaleOption = scale },
+                                            onClick = null,
                                             colors = RadioButtonDefaults.colors(selectedColor = BlackColor)
                                         )
                                         Text("${scale}x", fontWeight = FontWeight.Bold)
@@ -1401,11 +1408,15 @@ private fun ImagesToPdfSettingsStage(
                 listOf("AUTO", "A4", "LETTER").forEach { size ->
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { onPageSizeSelectionChange(size) }
+                        modifier = Modifier.selectable(
+                            selected = pageSizeSelection == size,
+                            role = Role.RadioButton,
+                            onClick = { onPageSizeSelectionChange(size) }
+                        )
                     ) {
                         RadioButton(
                             selected = pageSizeSelection == size,
-                            onClick = { onPageSizeSelectionChange(size) },
+                            onClick = null,
                             colors = RadioButtonDefaults.colors(selectedColor = BlackColor)
                         )
                         Text(size, fontWeight = FontWeight.Bold)
@@ -2714,18 +2725,32 @@ private fun WatermarkSettingsStage(
                 // Type toggle
                 Text("Type:", fontWeight = FontWeight.Bold)
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.selectable(
+                            selected = watermarkType == "text",
+                            role = Role.RadioButton,
+                            onClick = { onWatermarkTypeChange("text") }
+                        )
+                    ) {
                         RadioButton(
                             selected = watermarkType == "text",
-                            onClick = { onWatermarkTypeChange("text") },
+                            onClick = null,
                             colors = RadioButtonDefaults.colors(selectedColor = BlackColor)
                         )
                         Text("Text")
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.selectable(
+                            selected = watermarkType == "image",
+                            role = Role.RadioButton,
+                            onClick = { onWatermarkTypeChange("image") }
+                        )
+                    ) {
                         RadioButton(
                             selected = watermarkType == "image",
-                            onClick = { onWatermarkTypeChange("image") },
+                            onClick = null,
                             colors = RadioButtonDefaults.colors(selectedColor = BlackColor)
                         )
                         Text("Image")

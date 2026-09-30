@@ -99,4 +99,32 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onAllNodesWithText("Add Page Numbers")
             .assertCountEquals(2) // Navbar title + Header card title
     }
+
+    @Test
+    fun radioButtonRowHasRadioButtonRoleAndSelectedSemantics() {
+        composeTestRule.setContent {
+            androidx.compose.foundation.layout.Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                modifier = Modifier
+                    .selectable(
+                        selected = true,
+                        role = Role.RadioButton,
+                        onClick = {}
+                    )
+                    .testTag("radio_row")
+            ) {
+                androidx.compose.material3.RadioButton(
+                    selected = true,
+                    onClick = null
+                )
+                androidx.compose.material3.Text("AUTO")
+            }
+        }
+
+        composeTestRule.onNodeWithTag("radio_row")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            .assert(isSelected())
+        composeTestRule.onNodeWithText("AUTO")
+            .assertExists()
+    }
 }
