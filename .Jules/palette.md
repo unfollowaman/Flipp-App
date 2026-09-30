@@ -9,3 +9,7 @@
 ## 2026-03-31 - Option Selection Grids Accessibility in Jetpack Compose
 **Learning:** Custom selection option grids built with `Box` + `Modifier.clickable` fail to communicate selection state (`selected` / `not selected`) and control type to screen readers. Replacing `.clickable` with `Modifier.selectable(selected = isSelected, role = Role.RadioButton, onClick = ...)` exposes `selected` state and `Role.RadioButton` accessibility semantics.
 **Action:** Use `Modifier.selectable` instead of `.clickable` on custom selection option grids and toggle items.
+
+## 2026-03-31 - Header Logo Navigation Region Accessibility in Jetpack Compose
+**Learning:** Clickable brand/logo header regions built with `Row` + `Modifier.clickable` lack default button accessibility roles and action context for screen readers. Explicitly supplying `role = Role.Button` and `onClickLabel = "..."` to `Modifier.clickable` ensures accessibility services announce the element as an interactive button with clear navigation feedback.
+**Action:** Always provide `role = Role.Button` and descriptive `onClickLabel` parameters when using `Modifier.clickable` on interactive brand/logo layout containers.

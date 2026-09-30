@@ -170,7 +170,11 @@ fun TopNavbar(
         Row(
             modifier = Modifier
                 .weight(1f)
-                .clickable { onLogoClick?.invoke() },
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = "Go to home screen",
+                    onClick = { onLogoClick?.invoke() }
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
