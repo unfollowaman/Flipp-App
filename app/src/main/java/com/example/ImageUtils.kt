@@ -127,7 +127,10 @@ object ImageUtils {
             Bitmap.CompressFormat.JPEG
         }
 
-        baseBitmap.compress(compressFormat, 95, outputStream)
+        // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during image encoding
+        val bufferedOut = outputStream.buffered()
+        baseBitmap.compress(compressFormat, 95, bufferedOut)
+        bufferedOut.flush()
         baseBitmap.recycle()
     }
 }

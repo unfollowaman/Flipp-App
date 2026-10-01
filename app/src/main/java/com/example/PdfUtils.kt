@@ -125,8 +125,10 @@ object PdfUtils {
             else -> PageSize.A4 // Default or will adjust dynamically below
         }
         
+        // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF creation
+        val bufferedOut = outputStream.buffered()
         val doc = Document(docSize, 36f, 36f, 36f, 36f)
-        val writer = PdfWriter.getInstance(doc, outputStream)
+        val writer = PdfWriter.getInstance(doc, bufferedOut)
         
         doc.open()
         
@@ -171,8 +173,10 @@ object PdfUtils {
         outputStream: OutputStream,
         onProgress: (Int, Int) -> Unit
     ) {
+        // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF merge
+        val bufferedOut = outputStream.buffered()
         val doc = Document()
-        val copy = PdfCopy(doc, outputStream)
+        val copy = PdfCopy(doc, bufferedOut)
         doc.open()
         
         val total = pdfUris.size
@@ -216,8 +220,10 @@ object PdfUtils {
             throw IllegalArgumentException("No valid pages in range.")
         }
 
+        // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF split
+        val bufferedOut = outputStream.buffered()
         val doc = Document()
-        val copy = PdfCopy(doc, outputStream)
+        val copy = PdfCopy(doc, bufferedOut)
         doc.open()
 
         for (p in startPage..endPage) {
@@ -243,7 +249,9 @@ object PdfUtils {
         inputStream.use { stream ->
             val reader = PdfReader(stream)
 
-            val stamper = PdfStamper(reader, outputStream)
+            // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF encryption
+            val bufferedOut = outputStream.buffered()
+            val stamper = PdfStamper(reader, bufferedOut)
             stamper.setEncryption(
                 password.bytes,
                 password.bytes,
@@ -270,7 +278,9 @@ object PdfUtils {
             val reader = PdfReader(inputStream)
             val totalPages = reader.numberOfPages
             
-            val stamper = PdfStamper(reader, outputStream)
+            // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF stamping
+            val bufferedOut = outputStream.buffered()
+            val stamper = PdfStamper(reader, bufferedOut)
             val baseFont = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.WINANSI, BaseFont.EMBEDDED)
             
             val fontSize = 11f
@@ -345,8 +355,10 @@ object PdfUtils {
             else -> PageSize.A4
         }
 
+        // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF generation
+        val bufferedOut = outputStream.buffered()
         val doc = Document(docSize, margin, margin, margin, margin)
-        val writer = PdfWriter.getInstance(doc, outputStream)
+        val writer = PdfWriter.getInstance(doc, bufferedOut)
 
         doc.open()
 
