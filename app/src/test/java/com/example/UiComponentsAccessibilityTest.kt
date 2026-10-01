@@ -30,6 +30,21 @@ class UiComponentsAccessibilityTest {
     val composeTestRule = createComposeRule()
 
     @Test
+    fun topNavbarLogoHasButtonAccessibilityRoleAndOnClickLabel() {
+        composeTestRule.setContent {
+            TopNavbar(
+                onPrivacyClick = {},
+                onLogoClick = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("flipp")
+            .assertExists()
+        composeTestRule.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertCountEquals(2) // Logo Row button + Privacy IconButton
+    }
+
+    @Test
     fun brutalistButtonHasButtonAccessibilityRole() {
         composeTestRule.setContent {
             BrutalistButton(
