@@ -62,6 +62,7 @@ fun BrutalistShadowBox(
     shadowColor: Color = BlackColor,
     cornerRadius: Dp = 10.dp,
     onClick: (() -> Unit)? = null,
+    onClickLabel: String? = null,
     testTag: String? = null,
     borderWidth: Dp = 2.dp,
     content: @Composable BoxScope.() -> Unit
@@ -99,6 +100,7 @@ fun BrutalistShadowBox(
                         interactionSource = interactionSource,
                         indication = null,
                         role = Role.Button,
+                        onClickLabel = onClickLabel,
                         onClick = onClick
                     ),
                 content = content
