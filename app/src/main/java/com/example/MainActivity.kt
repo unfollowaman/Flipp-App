@@ -285,6 +285,7 @@ private fun TextToPdfInputStage(
         OutlinedTextField(
             value = textInput,
             onValueChange = onTextInputChange,
+            placeholder = { Text("Type or paste text here...", color = Color.Gray) },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp)
@@ -1998,6 +1999,7 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
                             OutlinedTextField(
                                 value = password,
                                 onValueChange = { password = it },
+                                placeholder = { Text("Enter encryption password", color = Color.Gray) },
                                 visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                                 modifier = Modifier.fillMaxWidth(),
                                 singleLine = true,
@@ -2210,6 +2212,7 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                             OutlinedTextField(
                                 value = startNumStr,
                                 onValueChange = { startNumStr = it },
+                                placeholder = { Text("1", color = Color.Gray) },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = BlackColor,
                                     unfocusedBorderColor = BlackColor
@@ -2766,6 +2769,7 @@ private fun WatermarkSettingsStage(
                     OutlinedTextField(
                         value = watermarkText,
                         onValueChange = onWatermarkTextChange,
+                        placeholder = { Text("CONFIDENTIAL", color = Color.Gray) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = BlackColor,
                             unfocusedBorderColor = BlackColor
