@@ -395,15 +395,21 @@ object PdfUtils {
             val reader = PdfReader(stream)
             val numPages = reader.numberOfPages
             val stringBuilder = StringBuilder()
+            // Optimize: Instead of unconditionally appending "\n\n" string objects on every page and calling .trim()
+            // at the end (which allocates a secondary full String copy of the result), conditionally append page separators
+            // with primitive char appends and check for non-blank page content to avoid unnecessary String allocations.
             for (i in 1..numPages) {
                 val textFromPage = PdfTextExtractor.getTextFromPage(reader, i)
-                if (textFromPage != null) {
-                    stringBuilder.append(textFromPage).append("\n\n")
+                if (!textFromPage.isNullOrBlank()) {
+                    if (stringBuilder.isNotEmpty()) {
+                        stringBuilder.append('\n').append('\n')
+                    }
+                    stringBuilder.append(textFromPage.trim())
                 }
                 onProgress(i, numPages)
             }
             reader.close()
-            stringBuilder.toString().trim()
+            stringBuilder.toString()
         }
     }
 
