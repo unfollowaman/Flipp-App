@@ -602,6 +602,7 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
                 backgroundColor = tool.badgeColor,
                 cornerRadius = 16.dp,
                 onClick = { onScreenNavigate(tool.screenKey) },
+                onClickLabel = "Open ${tool.title} tool",
                 testTag = "tool_card_${tool.screenKey}"
             ) {
                 Column(

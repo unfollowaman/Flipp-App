@@ -2,7 +2,9 @@ package com.example
 
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -56,6 +58,28 @@ class UiComponentsAccessibilityTest {
 
         composeTestRule.onNodeWithTag("test_button")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun brutalistShadowBoxWithOnClickLabelSetsOnClickLabelSemantics() {
+        composeTestRule.setContent {
+            BrutalistShadowBox(
+                onClick = {},
+                onClickLabel = "Open PDF to Images tool",
+                testTag = "test_shadow_box"
+            ) {
+                Box(modifier = Modifier)
+            }
+        }
+
+        composeTestRule.onNodeWithTag("test_shadow_box")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assert(
+                SemanticsMatcher("has onClickLabel 'Open PDF to Images tool'") { node ->
+                    val onClickConfig = node.config.getOrNull(SemanticsActions.OnClick)
+                    onClickConfig?.label == "Open PDF to Images tool"
+                }
+            )
     }
 
     @Test
