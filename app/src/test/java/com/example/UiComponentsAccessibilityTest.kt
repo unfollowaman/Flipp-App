@@ -176,4 +176,14 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onNodeWithText("Type or paste text here...")
             .assertExists()
     }
+
+    @Test
+    fun formInputFieldsHaveContentDescriptionAccessibilitySemantics() {
+        composeTestRule.setContent {
+            TextToPdfScreen(onBack = {})
+        }
+
+        composeTestRule.onNode(androidx.compose.ui.test.hasContentDescription("Text content for PDF"))
+            .assertExists()
+    }
 }
