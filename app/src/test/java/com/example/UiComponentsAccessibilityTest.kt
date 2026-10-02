@@ -166,4 +166,14 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onNodeWithText("AUTO")
             .assertExists()
     }
+
+    @Test
+    fun textToPdfScreenDisplaysInputPlaceholderWhenTextIsEmpty() {
+        composeTestRule.setContent {
+            TextToPdfScreen(onBack = {})
+        }
+
+        composeTestRule.onNodeWithText("Type or paste text here...")
+            .assertExists()
+    }
 }
