@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasProgressBarRangeInfo
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -174,6 +175,16 @@ class UiComponentsAccessibilityTest {
         }
 
         composeTestRule.onNodeWithText("Type or paste text here...")
+            .assertExists()
+    }
+
+    @Test
+    fun textToPdfInputHasAccessibilityContentDescription() {
+        composeTestRule.setContent {
+            TextToPdfScreen(onBack = {})
+        }
+
+        composeTestRule.onNode(hasContentDescription("Text input for PDF document"))
             .assertExists()
     }
 }
