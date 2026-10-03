@@ -13,3 +13,7 @@
 ## 2026-03-31 - Header Logo Navigation Region Accessibility in Jetpack Compose
 **Learning:** Clickable brand/logo header regions built with `Row` + `Modifier.clickable` lack default button accessibility roles and action context for screen readers. Explicitly supplying `role = Role.Button` and `onClickLabel = "..."` to `Modifier.clickable` ensures accessibility services announce the element as an interactive button with clear navigation feedback.
 **Action:** Always provide `role = Role.Button` and descriptive `onClickLabel` parameters when using `Modifier.clickable` on interactive brand/logo layout containers.
+
+## 2026-03-31 - Numeric Input Fields Accessibility and Keypad Ergonomics in Jetpack Compose
+**Learning:** Numeric input fields (`OutlinedTextField`) without explicit `keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)` default to standard alphanumeric soft keyboards on mobile devices, forcing users to manually switch keyboard modes. Adding `KeyboardOptions(keyboardType = KeyboardType.Number)` and explicit `.semantics { contentDescription = "..." }` ensures immediate numeric keypad presentation on focus and unambiguous context for screen reader users.
+**Action:** Always specify `KeyboardOptions(keyboardType = KeyboardType.Number)` and `contentDescription` semantics on numeric input fields in Compose forms.

@@ -20,7 +20,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -78,6 +81,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -398,10 +402,12 @@ private fun TextToPdfConfigStage(
         OutlinedTextField(
             value = fontSizeStr,
             onValueChange = { if (it.all { char -> char.isDigit() }) onFontSizeStrChange(it) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
-                .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+                .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
+                .semantics { contentDescription = "Font size" },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.Transparent,
                 unfocusedBorderColor = Color.Transparent
@@ -1780,11 +1786,14 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     OutlinedTextField(
                                         value = startPageStr,
                                         onValueChange = { startPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
                                         ),
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .semantics { contentDescription = "Start page number" },
                                         singleLine = true
                                     )
                                 }
@@ -1793,11 +1802,14 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     OutlinedTextField(
                                         value = endPageStr,
                                         onValueChange = { endPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
                                         ),
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .semantics { contentDescription = "End page number" },
                                         singleLine = true
                                     )
                                 }
@@ -2213,11 +2225,14 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                                 value = startNumStr,
                                 onValueChange = { startNumStr = it },
                                 placeholder = { Text("1", color = Color.Gray) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = BlackColor,
                                     unfocusedBorderColor = BlackColor
                                 ),
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics { contentDescription = "Start page number index" },
                                 singleLine = true
                             )
                             
