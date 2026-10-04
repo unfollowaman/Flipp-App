@@ -17,6 +17,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -78,6 +79,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -398,6 +400,8 @@ private fun TextToPdfConfigStage(
         OutlinedTextField(
             value = fontSizeStr,
             onValueChange = { if (it.all { char -> char.isDigit() }) onFontSizeStrChange(it) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
@@ -1779,7 +1783,8 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     Text("From Page:", fontWeight = FontWeight.Bold)
                                     OutlinedTextField(
                                         value = startPageStr,
-                                        onValueChange = { startPageStr = it },
+                                        onValueChange = { if (it.all { char -> char.isDigit() }) startPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
@@ -1792,7 +1797,8 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     Text("To Page:", fontWeight = FontWeight.Bold)
                                     OutlinedTextField(
                                         value = endPageStr,
-                                        onValueChange = { endPageStr = it },
+                                        onValueChange = { if (it.all { char -> char.isDigit() }) endPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
@@ -2211,7 +2217,8 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                             Spacer(modifier = Modifier.height(4.dp))
                             OutlinedTextField(
                                 value = startNumStr,
-                                onValueChange = { startNumStr = it },
+                                onValueChange = { if (it.all { char -> char.isDigit() }) startNumStr = it },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 placeholder = { Text("1", color = Color.Gray) },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = BlackColor,

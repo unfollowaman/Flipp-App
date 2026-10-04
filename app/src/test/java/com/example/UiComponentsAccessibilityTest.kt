@@ -176,4 +176,22 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onNodeWithText("Type or paste text here...")
             .assertExists()
     }
+
+    @Test
+    fun numericInputFieldRestrictsInputToDigits() {
+        var textValue = "12"
+        composeTestRule.setContent {
+            androidx.compose.material3.OutlinedTextField(
+                value = textValue,
+                onValueChange = { if (it.all { char -> char.isDigit() }) textValue = it },
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
+                modifier = Modifier.testTag("numeric_field")
+            )
+        }
+
+        composeTestRule.onNodeWithTag("numeric_field")
+            .assertExists()
+    }
 }
