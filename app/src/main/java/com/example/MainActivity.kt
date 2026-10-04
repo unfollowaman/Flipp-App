@@ -20,7 +20,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -398,10 +402,12 @@ private fun TextToPdfConfigStage(
         OutlinedTextField(
             value = fontSizeStr,
             onValueChange = { if (it.all { char -> char.isDigit() }) onFontSizeStrChange(it) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
-                .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+                .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
+                .semantics { contentDescription = "Font size" },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.Transparent,
                 unfocusedBorderColor = Color.Transparent
@@ -1780,11 +1786,14 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     OutlinedTextField(
                                         value = startPageStr,
                                         onValueChange = { startPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
                                         ),
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .semantics { contentDescription = "From page" },
                                         singleLine = true
                                     )
                                 }
@@ -1793,11 +1802,14 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     OutlinedTextField(
                                         value = endPageStr,
                                         onValueChange = { endPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
                                         ),
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .semantics { contentDescription = "To page" },
                                         singleLine = true
                                     )
                                 }
@@ -2213,11 +2225,14 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                                 value = startNumStr,
                                 onValueChange = { startNumStr = it },
                                 placeholder = { Text("1", color = Color.Gray) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = BlackColor,
                                     unfocusedBorderColor = BlackColor
                                 ),
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics { contentDescription = "Page number index start offset" },
                                 singleLine = true
                             )
                             
@@ -2827,6 +2842,7 @@ private fun WatermarkSettingsStage(
                     value = opacity,
                     onValueChange = onOpacityChange,
                     valueRange = 0f..1f,
+                    modifier = Modifier.semantics { contentDescription = "Watermark opacity" },
                     colors = androidx.compose.material3.SliderDefaults.colors(
                         thumbColor = BlackColor,
                         activeTrackColor = BlackColor,
@@ -2841,6 +2857,7 @@ private fun WatermarkSettingsStage(
                     value = size,
                     onValueChange = onSizeChange,
                     valueRange = 0.1f..3.0f,
+                    modifier = Modifier.semantics { contentDescription = "Watermark size" },
                     colors = androidx.compose.material3.SliderDefaults.colors(
                         thumbColor = BlackColor,
                         activeTrackColor = BlackColor,
@@ -2855,6 +2872,7 @@ private fun WatermarkSettingsStage(
                     value = rotation,
                     onValueChange = onRotationChange,
                     valueRange = 0f..360f,
+                    modifier = Modifier.semantics { contentDescription = "Watermark rotation" },
                     colors = androidx.compose.material3.SliderDefaults.colors(
                         thumbColor = BlackColor,
                         activeTrackColor = BlackColor,

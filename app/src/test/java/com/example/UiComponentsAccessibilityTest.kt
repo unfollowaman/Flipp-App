@@ -15,6 +15,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.hasProgressBarRangeInfo
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -174,6 +177,25 @@ class UiComponentsAccessibilityTest {
         }
 
         composeTestRule.onNodeWithText("Type or paste text here...")
+            .assertExists()
+    }
+
+    @Test
+    fun numericTextFieldsExposeContentDescriptionSemantics() {
+        composeTestRule.setContent {
+            androidx.compose.material3.OutlinedTextField(
+                value = "12",
+                onValueChange = {},
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
+                modifier = Modifier.semantics {
+                    contentDescription = "Font size"
+                }
+            )
+        }
+
+        composeTestRule.onNode(hasContentDescription("Font size"))
             .assertExists()
     }
 }
