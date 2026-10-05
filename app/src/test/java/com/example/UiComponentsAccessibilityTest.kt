@@ -176,4 +176,29 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onNodeWithText("Type or paste text here...")
             .assertExists()
     }
+
+    @Test
+    fun numericInputFieldsHaveAccessibilityContentDescriptionSemantics() {
+        composeTestRule.setContent {
+            TextToPdfConfigStage(
+                pageSizeSelection = "A4",
+                onPageSizeSelectionChange = {},
+                marginOption = "normal",
+                onMarginOptionChange = {},
+                alignment = "left",
+                onAlignmentChange = {},
+                fontSizeStr = "12",
+                onFontSizeStrChange = {},
+                onBack = {},
+                onGeneratePdf = {}
+            )
+        }
+
+        composeTestRule.onNode(
+            SemanticsMatcher("has contentDescription 'Font size'") { node ->
+                val descriptions = node.config.getOrNull(SemanticsProperties.ContentDescription)
+                descriptions?.contains("Font size") == true
+            }
+        ).assertExists()
+    }
 }
