@@ -75,9 +75,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -401,7 +405,9 @@ private fun TextToPdfConfigStage(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
-                .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+                .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
+                .semantics { contentDescription = "Font size" },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color.Transparent,
                 unfocusedBorderColor = Color.Transparent
@@ -1780,11 +1786,14 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     OutlinedTextField(
                                         value = startPageStr,
                                         onValueChange = { startPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
                                         ),
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .semantics { contentDescription = "From page" },
                                         singleLine = true
                                     )
                                 }
@@ -1793,11 +1802,14 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     OutlinedTextField(
                                         value = endPageStr,
                                         onValueChange = { endPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
                                         ),
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .semantics { contentDescription = "To page" },
                                         singleLine = true
                                     )
                                 }
@@ -2213,11 +2225,14 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                                 value = startNumStr,
                                 onValueChange = { startNumStr = it },
                                 placeholder = { Text("1", color = Color.Gray) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = BlackColor,
                                     unfocusedBorderColor = BlackColor
                                 ),
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics { contentDescription = "Page number start offset" },
                                 singleLine = true
                             )
                             
