@@ -79,14 +79,40 @@ object ImageUtils {
 
         } else if (watermarkType == "image" && watermarkImageUri != null) {
             // Image Watermark
-            val wmInputStream = context.contentResolver.openInputStream(watermarkImageUri) ?: throw Exception("Failed to open watermark image")
-            val wmBitmap = BitmapFactory.decodeStream(wmInputStream) ?: throw Exception("Failed to decode watermark image")
-            wmInputStream.close()
-
-            // Calculate scale based on base image width and user size setting
             val targetWmWidth = width * 0.2f * size
-            val scale = targetWmWidth / wmBitmap.width
-            val targetWmHeight = wmBitmap.height * scale
+
+            // Optimize memory: Inspect dimensions first with inJustDecodeBounds = true to calculate a downscaling inSampleSize.
+            // This avoids decoding full unscaled high-resolution watermark image pixels into heap memory.
+            val boundsOptions = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+            context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, boundsOptions)
+            }
+
+            val origWidth = boundsOptions.outWidth
+            val origHeight = boundsOptions.outHeight
+
+            var sampleSize = 1
+            if (origWidth > 0 && origHeight > 0) {
+                val targetW = targetWmWidth.toInt().coerceAtLeast(1)
+                while (origWidth / (sampleSize * 2) >= targetW) {
+                    sampleSize *= 2
+                }
+            }
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                inSampleSize = sampleSize
+            }
+            val wmBitmap = context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, decodeOptions)
+            } ?: throw Exception("Failed to decode watermark image")
+
+            val targetWmHeight = if (origWidth > 0 && origHeight > 0) {
+                origHeight.toFloat() * (targetWmWidth / origWidth.toFloat())
+            } else {
+                wmBitmap.height * (targetWmWidth / wmBitmap.width.toFloat())
+            }
 
             when {
                 position.contains("left") -> x = margin
