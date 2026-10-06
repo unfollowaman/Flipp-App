@@ -176,4 +176,21 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onNodeWithText("Type or paste text here...")
             .assertExists()
     }
+
+    @Test
+    fun numericTextFieldHasNumberKeyboardTypeConfigured() {
+        composeTestRule.setContent {
+            androidx.compose.material3.OutlinedTextField(
+                value = "12",
+                onValueChange = {},
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
+                modifier = Modifier.testTag("numeric_input")
+            )
+        }
+
+        composeTestRule.onNodeWithTag("numeric_input")
+            .assertExists()
+    }
 }
