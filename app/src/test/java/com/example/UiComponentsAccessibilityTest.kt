@@ -180,21 +180,12 @@ class UiComponentsAccessibilityTest {
     }
 
     @Test
-    fun numericTextFieldsExposeContentDescriptionSemantics() {
+    fun formInputFieldsHaveContentDescriptionAccessibilitySemantics() {
         composeTestRule.setContent {
-            androidx.compose.material3.OutlinedTextField(
-                value = "12",
-                onValueChange = {},
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                ),
-                modifier = Modifier.semantics {
-                    contentDescription = "Font size"
-                }
-            )
+            TextToPdfScreen(onBack = {})
         }
 
-        composeTestRule.onNode(androidx.compose.ui.test.hasContentDescription("Font size"))
+        composeTestRule.onNode(androidx.compose.ui.test.hasContentDescription("Text content for PDF"))
             .assertExists()
     }
 }
