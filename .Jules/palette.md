@@ -14,6 +14,6 @@
 **Learning:** Clickable brand/logo header regions built with `Row` + `Modifier.clickable` lack default button accessibility roles and action context for screen readers. Explicitly supplying `role = Role.Button` and `onClickLabel = "..."` to `Modifier.clickable` ensures accessibility services announce the element as an interactive button with clear navigation feedback.
 **Action:** Always provide `role = Role.Button` and descriptive `onClickLabel` parameters when using `Modifier.clickable` on interactive brand/logo layout containers.
 
-## 2026-03-31 - Numeric Input Keypad Accessibility in Jetpack Compose
-**Learning:** In Jetpack Compose numeric input fields, setting `keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)` on `OutlinedTextField` ensures mobile devices automatically present the numeric soft keypad when focused, providing better UX and preventing invalid character inputs.
-**Action:** Always configure `keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)` and `singleLine = true` on numeric form input fields.
+## 2026-03-31 - Form Fields and Sliders Content Description Accessibility in Jetpack Compose
+**Learning:** `OutlinedTextField` inputs and `Slider` components in custom-styled Jetpack Compose forms often rely on separate visual `Text` labels placed above or beside them. Without explicit `.semantics { contentDescription = "..." }`, screen readers like TalkBack announce generic elements ("edit box", "slider 50%") without providing field context. Applying `contentDescription` semantics connects the field purpose to screen readers without altering custom brutalist layout borders or typography.
+**Action:** Always add `.semantics { contentDescription = "..." }` to `OutlinedTextField` and `Slider` components in custom-styled forms where visual labels are rendered outside the input bounds.
