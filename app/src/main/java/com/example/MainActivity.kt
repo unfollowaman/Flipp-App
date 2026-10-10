@@ -17,6 +17,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -2226,7 +2227,8 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                             Spacer(modifier = Modifier.height(4.dp))
                             OutlinedTextField(
                                 value = startNumStr,
-                                onValueChange = { startNumStr = it },
+                                onValueChange = { if (it.all { char -> char.isDigit() }) startNumStr = it },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 placeholder = { Text("1", color = Color.Gray) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
