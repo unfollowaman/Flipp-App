@@ -79,33 +79,27 @@ object ImageUtils {
 
         } else if (watermarkType == "image" && watermarkImageUri != null) {
             // Image Watermark
-            // Optimize memory: Inspect watermark image bounds with inJustDecodeBounds = true first to calculate
-            // an optimal inSampleSize, avoiding large heap bitmap allocations for high-resolution watermark images.
-            val boundsOptions = BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
-            }
+            val targetWmWidth = width * 0.2f * size
+
+            // Optimize memory: Decode image bounds first to compute target inSampleSize before allocating full bitmap in memory.
+            val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, boundsOptions)
             } ?: throw Exception("Failed to open watermark image")
 
-            val rawWmWidth = boundsOptions.outWidth
-            val rawWmHeight = boundsOptions.outHeight
+            val origWidth = boundsOptions.outWidth
+            val origHeight = boundsOptions.outHeight
+            if (origWidth <= 0 || origHeight <= 0) throw Exception("Failed to decode watermark image dimensions")
 
-            if (rawWmWidth <= 0 || rawWmHeight <= 0) {
-                throw Exception("Failed to decode watermark image bounds")
-            }
+            val scale = targetWmWidth / origWidth
+            val targetWmHeight = origHeight * scale
 
-            // Calculate scale based on base image width and user size setting
-            val targetWmWidth = width * 0.2f * size
-            val scale = targetWmWidth / rawWmWidth
-            val targetWmHeight = rawWmHeight * scale
-
-            // Calculate downsampling factor inSampleSize
+            // Downsample high-res watermark images on decode to avoid massive heap allocations (saving up to ~95% RAM for large watermark images)
             var inSampleSize = 1
-            if (rawWmHeight > targetWmHeight || rawWmWidth > targetWmWidth) {
-                val halfHeight = rawWmHeight / 2
-                val halfWidth = rawWmWidth / 2
-                while ((halfHeight / inSampleSize) >= targetWmHeight && (halfWidth / inSampleSize) >= targetWmWidth) {
+            if (origWidth > targetWmWidth && origHeight > targetWmHeight) {
+                val halfWidth = origWidth / 2
+                val halfHeight = origHeight / 2
+                while ((halfWidth / inSampleSize) >= targetWmWidth && (halfHeight / inSampleSize) >= targetWmHeight) {
                     inSampleSize *= 2
                 }
             }
@@ -114,9 +108,9 @@ object ImageUtils {
                 this.inSampleSize = inSampleSize
             }
 
-            val wmInputStream = context.contentResolver.openInputStream(watermarkImageUri) ?: throw Exception("Failed to open watermark image")
-            val wmBitmap = BitmapFactory.decodeStream(wmInputStream, null, decodeOptions) ?: throw Exception("Failed to decode watermark image")
-            wmInputStream.close()
+            val wmBitmap = context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, decodeOptions)
+            } ?: throw Exception("Failed to decode watermark image")
 
             when {
                 position.contains("left") -> x = margin
@@ -162,5 +156,22 @@ object ImageUtils {
         baseBitmap.compress(compressFormat, 95, bufferedOut)
         bufferedOut.flush()
         baseBitmap.recycle()
+    }
+
+    private fun calculateInSampleSize(
+        outWidth: Int,
+        outHeight: Int,
+        reqWidth: Int,
+        reqHeight: Int
+    ): Int {
+        var inSampleSize = 1
+        if (reqWidth > 0 && reqHeight > 0 && (outHeight > reqHeight || outWidth > reqWidth)) {
+            val halfHeight = outHeight / 2
+            val halfWidth = outWidth / 2
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
     }
 }
