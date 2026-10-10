@@ -20,6 +20,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -80,6 +81,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -401,6 +403,7 @@ private fun TextToPdfConfigStage(
         OutlinedTextField(
             value = fontSizeStr,
             onValueChange = { if (it.all { char -> char.isDigit() }) onFontSizeStrChange(it) },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp)
@@ -1784,6 +1787,7 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     OutlinedTextField(
                                         value = startPageStr,
                                         onValueChange = { startPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
@@ -1799,6 +1803,7 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                                     OutlinedTextField(
                                         value = endPageStr,
                                         onValueChange = { endPageStr = it },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                         colors = OutlinedTextFieldDefaults.colors(
                                             focusedBorderColor = BlackColor,
                                             unfocusedBorderColor = BlackColor
@@ -2223,6 +2228,7 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                                 value = startNumStr,
                                 onValueChange = { startNumStr = it },
                                 placeholder = { Text("1", color = Color.Gray) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = BlackColor,
                                     unfocusedBorderColor = BlackColor
