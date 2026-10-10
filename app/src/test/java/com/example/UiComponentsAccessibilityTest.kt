@@ -4,7 +4,9 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -178,20 +180,12 @@ class UiComponentsAccessibilityTest {
     }
 
     @Test
-    fun numericInputFieldRestrictsInputToDigits() {
-        var textValue = "12"
+    fun formInputFieldsHaveContentDescriptionAccessibilitySemantics() {
         composeTestRule.setContent {
-            androidx.compose.material3.OutlinedTextField(
-                value = textValue,
-                onValueChange = { if (it.all { char -> char.isDigit() }) textValue = it },
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
-                ),
-                modifier = Modifier.testTag("numeric_field")
-            )
+            TextToPdfScreen(onBack = {})
         }
 
-        composeTestRule.onNodeWithTag("numeric_field")
+        composeTestRule.onNode(androidx.compose.ui.test.hasContentDescription("Text content for PDF"))
             .assertExists()
     }
 }
