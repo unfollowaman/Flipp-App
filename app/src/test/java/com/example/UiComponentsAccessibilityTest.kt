@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasProgressBarRangeInfo
 import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -139,6 +142,25 @@ class UiComponentsAccessibilityTest {
 
         composeTestRule.onAllNodesWithText("Add Page Numbers")
             .assertCountEquals(2) // Navbar title + Header card title
+    }
+
+    @Test
+    fun numericInputFieldExposesAccessibilityContentDescription() {
+        composeTestRule.setContent {
+            androidx.compose.material3.OutlinedTextField(
+                value = "1",
+                onValueChange = {},
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                ),
+                modifier = Modifier.semantics {
+                    contentDescription = "Page number start offset"
+                }
+            )
+        }
+
+        composeTestRule.onNode(hasContentDescription("Page number start offset"))
+            .assertExists()
     }
 
     @Test
