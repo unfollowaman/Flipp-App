@@ -157,4 +157,21 @@ object ImageUtils {
         bufferedOut.flush()
         baseBitmap.recycle()
     }
+
+    private fun calculateInSampleSize(
+        outWidth: Int,
+        outHeight: Int,
+        reqWidth: Int,
+        reqHeight: Int
+    ): Int {
+        var inSampleSize = 1
+        if (reqWidth > 0 && reqHeight > 0 && (outHeight > reqHeight || outWidth > reqWidth)) {
+            val halfHeight = outHeight / 2
+            val halfWidth = outWidth / 2
+            while ((halfHeight / inSampleSize) >= reqHeight && (halfWidth / inSampleSize) >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
+    }
 }
