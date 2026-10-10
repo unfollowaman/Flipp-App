@@ -79,31 +79,37 @@ object ImageUtils {
 
         } else if (watermarkType == "image" && watermarkImageUri != null) {
             // Image Watermark
-            // Optimize memory: Inspect watermark image dimensions without allocating pixel heap space
-            val wmOptions = BitmapFactory.Options().apply {
-                inJustDecodeBounds = true
-            }
-            context.contentResolver.openInputStream(watermarkImageUri)?.use { wmInputStream ->
-                BitmapFactory.decodeStream(wmInputStream, null, wmOptions)
-            }
-
-            val rawWmWidth = wmOptions.outWidth
-            val rawWmHeight = wmOptions.outHeight
-
-            if (rawWmWidth <= 0 || rawWmHeight <= 0) {
-                throw Exception("Failed to decode watermark image dimensions")
-            }
-
-            // Calculate target dimensions based on base image width and user size setting
             val targetWmWidth = width * 0.2f * size
-            val targetWmHeight = rawWmHeight * (targetWmWidth / rawWmWidth)
 
-            // Compute optimal downscaling inSampleSize to avoid large heap bitmap allocations for high-resolution images
-            wmOptions.inJustDecodeBounds = false
-            wmOptions.inSampleSize = calculateInSampleSize(rawWmWidth, rawWmHeight, targetWmWidth.toInt(), targetWmHeight.toInt())
+            // Optimize memory: Decode image bounds first to compute target inSampleSize before allocating full bitmap in memory.
+            val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, boundsOptions)
+            } ?: throw Exception("Failed to open watermark image")
 
-            val wmBitmap = context.contentResolver.openInputStream(watermarkImageUri)?.use { wmInputStream ->
-                BitmapFactory.decodeStream(wmInputStream, null, wmOptions)
+            val origWidth = boundsOptions.outWidth
+            val origHeight = boundsOptions.outHeight
+            if (origWidth <= 0 || origHeight <= 0) throw Exception("Failed to decode watermark image dimensions")
+
+            val scale = targetWmWidth / origWidth
+            val targetWmHeight = origHeight * scale
+
+            // Downsample high-res watermark images on decode to avoid massive heap allocations (saving up to ~95% RAM for large watermark images)
+            var inSampleSize = 1
+            if (origWidth > targetWmWidth && origHeight > targetWmHeight) {
+                val halfWidth = origWidth / 2
+                val halfHeight = origHeight / 2
+                while ((halfWidth / inSampleSize) >= targetWmWidth && (halfHeight / inSampleSize) >= targetWmHeight) {
+                    inSampleSize *= 2
+                }
+            }
+
+            val decodeOptions = BitmapFactory.Options().apply {
+                this.inSampleSize = inSampleSize
+            }
+
+            val wmBitmap = context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, decodeOptions)
             } ?: throw Exception("Failed to decode watermark image")
 
             when {
