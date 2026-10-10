@@ -4,7 +4,9 @@ import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
@@ -196,6 +198,16 @@ class UiComponentsAccessibilityTest {
         }
 
         composeTestRule.onNodeWithText("Type or paste text here...")
+            .assertExists()
+    }
+
+    @Test
+    fun formInputFieldsHaveContentDescriptionAccessibilitySemantics() {
+        composeTestRule.setContent {
+            TextToPdfScreen(onBack = {})
+        }
+
+        composeTestRule.onNode(androidx.compose.ui.test.hasContentDescription("Text content for PDF"))
             .assertExists()
     }
 }

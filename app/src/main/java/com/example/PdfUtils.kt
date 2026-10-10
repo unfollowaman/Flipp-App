@@ -116,9 +116,11 @@ object PdfUtils {
         onProgress: (Int, Int) -> Unit
     ) {
         val total = imageUris.size
+        val optionUpper = pageSizeOption.uppercase()
+        val isAuto = optionUpper == "AUTO"
         
         // Initial page size placeholder; adjusted depending on options
-        val docSize = when (pageSizeOption.uppercase()) {
+        val docSize = when (optionUpper) {
             "A4" -> PageSize.A4
             "LETTER" -> PageSize.LETTER
             else -> PageSize.A4 // Default or will adjust dynamically below
@@ -135,7 +137,7 @@ object PdfUtils {
             val bytes = readBytesFromUri(context, uri) ?: continue
             val image = Image.getInstance(bytes)
 
-            if (pageSizeOption.uppercase() == "AUTO") {
+            if (isAuto) {
                 // Adjust page size dynamically to accommodate the image dimensions
                 val rect = Rectangle(image.width, image.height)
                 doc.setPageSize(rect)
@@ -285,6 +287,18 @@ object PdfUtils {
             val fontSize = 11f
             val margin = 36f // Margin from edges
             
+            // Optimize: Evaluate position flags and alignment ONCE outside the page loop
+            // to eliminate redundant string search pattern matching on every iteration.
+            val isLeft = position.contains("left")
+            val isCenter = position.contains("center")
+            val isTop = position.contains("top")
+
+            val alignment = when {
+                isLeft -> Element.ALIGN_LEFT
+                isCenter -> Element.ALIGN_CENTER
+                else -> Element.ALIGN_RIGHT
+            }
+
             for (i in 1..totalPages) {
                 val overContent = stamper.getOverContent(i)
                 val pageSize = reader.getPageSize(i)
@@ -295,35 +309,13 @@ object PdfUtils {
                 val currentNumber = startNumber + (i - 1)
                 val labelText = currentNumber.toString()
 
-                val alignment: Int
-                val x: Float
-                val y: Float
-
-                // X positioning
-                when {
-                    position.contains("left") -> {
-                        alignment = com.itextpdf.text.Element.ALIGN_LEFT
-                        x = margin
-                    }
-                    position.contains("center") -> {
-                        alignment = com.itextpdf.text.Element.ALIGN_CENTER
-                        x = width / 2f
-                    }
-                    else -> { // right
-                        alignment = com.itextpdf.text.Element.ALIGN_RIGHT
-                        x = width - margin
-                    }
+                val x = when {
+                    isLeft -> margin
+                    isCenter -> width / 2f
+                    else -> width - margin
                 }
 
-                // Y positioning
-                when {
-                    position.contains("top") -> {
-                        y = height - margin
-                    }
-                    else -> { // bottom
-                        y = margin
-                    }
-                }
+                val y = if (isTop) height - margin else margin
 
                 overContent.beginText()
                 overContent.setFontAndSize(baseFont, fontSize)
