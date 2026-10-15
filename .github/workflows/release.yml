@@ -1,9 +1,12 @@
 name: Android Release Build
 
-on:
+'on':
   push:
     tags:
       - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -39,8 +42,30 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
+      - name: Verify and Prepare Release APK
+        run: |
+          APK_PATH="app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK_PATH" ]; then
+            echo "Error: Release APK not found at $APK_PATH"
+            exit 1
+          fi
+          if [ ! -s "$APK_PATH" ]; then
+            echo "Error: Release APK is empty at $APK_PATH"
+            exit 1
+          fi
+          VERSION="${GITHUB_REF_NAME}"
+          RELEASE_APK="app/build/outputs/apk/release/Flipp-${VERSION}.apk"
+          cp "$APK_PATH" "$RELEASE_APK"
+          echo "RELEASE_APK=$RELEASE_APK" >> $GITHUB_ENV
+
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: app/build/outputs/apk/release/app-release.apk
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
+        with:
+          files: ${{ env.RELEASE_APK }}
+          generate_release_notes: true
