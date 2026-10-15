@@ -17,7 +17,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
@@ -79,7 +78,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -1113,11 +1111,12 @@ fun ImagesToPdfScreen(onBack: () -> Unit) {
                 selectedImageUris.addAll(uris)
                 stage = 2
                 
-                // Load thumbnails concurrently
+                // Load thumbnails concurrently with limited parallelism to prevent OOM
                 coroutineScope.launch {
                     val newUris = uris.filter { !imageThumbnailsMap.containsKey(it) }
+                    val dispatcher = Dispatchers.IO.limitedParallelism(4)
                     val results = newUris.map { uri ->
-                        async(Dispatchers.IO) {
+                        async(dispatcher) {
                             val thumb = loadImageThumbnail(context, uri)
                             if (thumb != null) uri to thumb else null
                         }
@@ -2231,7 +2230,6 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                             OutlinedTextField(
                                 value = startNumStr,
                                 onValueChange = { if (it.all { char -> char.isDigit() }) startNumStr = it },
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 placeholder = { Text("1", color = Color.Gray) },
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(

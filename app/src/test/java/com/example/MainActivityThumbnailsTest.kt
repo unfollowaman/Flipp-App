@@ -21,6 +21,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import org.robolectric.shadow.api.Shadow
 import org.robolectric.shadows.ShadowContentResolver
 import java.io.File
@@ -205,5 +207,38 @@ class MainActivityThumbnailsTest {
         assertNotNull(thumbnail)
         assertTrue(thumbnail!!.width > 0)
         assertTrue(thumbnail.height > 0)
+    }
+
+    @Test
+    fun loadImageThumbnails_handlesConcurrentBatchLoading() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        // Create multiple dummy image files
+        val uris = (1..10).map { i ->
+            val bitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
+            val imageFile = File(context.cacheDir, "test_batch_thumbnail_$i.png")
+            FileOutputStream(imageFile).use { fos ->
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+            }
+            Uri.fromFile(imageFile)
+        }
+
+        val dispatcher = kotlinx.coroutines.Dispatchers.IO.limitedParallelism(4)
+        val thumbnails = kotlinx.coroutines.runBlocking {
+            kotlinx.coroutines.coroutineScope {
+                uris.map { uri ->
+                    async(dispatcher) {
+                        val thumb = loadImageThumbnail(context, uri)
+                        if (thumb != null) uri to thumb else null
+                    }
+                }.awaitAll().filterNotNull()
+            }
+        }
+
+        assertEquals(10, thumbnails.size)
+        thumbnails.forEach { (_, thumb) ->
+            assertNotNull(thumb)
+            assertTrue(thumb.width > 0)
+        }
     }
 }
