@@ -35,12 +35,48 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest
 
+      - name: Derive Version Info from Tag
+        id: version_info
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "Processing Git Tag: $TAG"
+
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Tag '$TAG' does not follow semantic versioning pattern 'vX.Y.Z' (e.g. v1.2.1)"
+            exit 1
+          fi
+
+          VERSION_NAME="${TAG#v}"
+
+          # Parse SemVer components X.Y.Z
+          MAJOR=$(echo "$VERSION_NAME" | cut -d'.' -f1)
+          MINOR=$(echo "$VERSION_NAME" | cut -d'.' -f2)
+          PATCH=$(echo "$VERSION_NAME" | cut -d'.' -f3)
+
+          if [ "$MAJOR" -ge 20000 ] || [ "$MINOR" -ge 100 ] || [ "$PATCH" -ge 100 ]; then
+            echo "Error: Version components out of expected range for formula MAJOR*10000 + MINOR*100 + PATCH: $VERSION_NAME"
+            exit 1
+          fi
+
+          VERSION_CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+
+          if [ "$VERSION_CODE" -le 0 ]; then
+            echo "Error: Derived versionCode '$VERSION_CODE' is not a positive integer."
+            exit 1
+          fi
+
+          echo "Derived VERSION_NAME=$VERSION_NAME"
+          echo "Derived VERSION_CODE=$VERSION_CODE"
+
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+
       - name: Build Release APK and AAB
         env:
           KEYSTORE_PATH: my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease bundleRelease
+        run: ./gradlew assembleRelease bundleRelease -PversionCode=${VERSION_CODE} -PversionName=${VERSION_NAME}
 
       - name: Verify and Prepare Release Artifacts
         run: |
