@@ -35,14 +35,14 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest
 
-      - name: Build Release APK
+      - name: Build Release APK and AAB
         env:
           KEYSTORE_PATH: my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease
+        run: ./gradlew assembleRelease bundleRelease
 
-      - name: Verify and Prepare Release APK
+      - name: Verify and Prepare Release Artifacts
         run: |
           APK_PATH="app/build/outputs/apk/release/app-release.apk"
           if [ ! -f "$APK_PATH" ]; then
@@ -53,10 +53,26 @@ jobs:
             echo "Error: Release APK is empty at $APK_PATH"
             exit 1
           fi
+
+          AAB_PATH="app/build/outputs/bundle/release/app-release.aab"
+          if [ ! -f "$AAB_PATH" ]; then
+            echo "Error: Release AAB not found at $AAB_PATH"
+            exit 1
+          fi
+          if [ ! -s "$AAB_PATH" ]; then
+            echo "Error: Release AAB is empty at $AAB_PATH"
+            exit 1
+          fi
+
           VERSION="${GITHUB_REF_NAME}"
           RELEASE_APK="app/build/outputs/apk/release/Flipp-${VERSION}.apk"
+          RELEASE_AAB="app/build/outputs/bundle/release/Flipp-${VERSION}.aab"
+
           cp "$APK_PATH" "$RELEASE_APK"
+          cp "$AAB_PATH" "$RELEASE_AAB"
+
           echo "RELEASE_APK=$RELEASE_APK" >> $GITHUB_ENV
+          echo "RELEASE_AAB=$RELEASE_AAB" >> $GITHUB_ENV
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
@@ -64,8 +80,16 @@ jobs:
           name: app-release
           path: app/build/outputs/apk/release/app-release.apk
 
+      - name: Upload Release AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: app/build/outputs/bundle/release/app-release.aab
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
-          files: ${{ env.RELEASE_APK }}
+          files: |
+            ${{ env.RELEASE_APK }}
+            ${{ env.RELEASE_AAB }}
           generate_release_notes: true
