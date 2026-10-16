@@ -8,6 +8,10 @@ name: Android Release Build
 permissions:
   contents: write
 
+concurrency:
+  group: release-workflow
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,12 +39,76 @@ jobs:
       - name: Run Unit Tests
         run: ./gradlew testDebugUnitTest
 
+      - name: Derive Version Info from Tag and Check Release Order
+        id: version_info
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "Processing Git Tag: $TAG"
+
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Error: Tag '$TAG' does not follow semantic versioning pattern 'vX.Y.Z' (e.g. v1.2.1)"
+            exit 1
+          fi
+
+          VERSION_NAME="${TAG#v}"
+
+          # Parse SemVer components X.Y.Z
+          MAJOR=$(echo "$VERSION_NAME" | cut -d'.' -f1)
+          MINOR=$(echo "$VERSION_NAME" | cut -d'.' -f2)
+          PATCH=$(echo "$VERSION_NAME" | cut -d'.' -f3)
+
+          if [ "$MAJOR" -ge 20000 ] || [ "$MINOR" -ge 100 ] || [ "$PATCH" -ge 100 ]; then
+            echo "Error: Version components out of expected range for formula MAJOR*10000 + MINOR*100 + PATCH: $VERSION_NAME"
+            exit 1
+          fi
+
+          VERSION_CODE=$(( MAJOR * 10000 + MINOR * 100 + PATCH ))
+
+          if [ "$VERSION_CODE" -le 0 ]; then
+            echo "Error: Derived versionCode '$VERSION_CODE' is not a positive integer."
+            exit 1
+          fi
+
+          echo "Derived VERSION_NAME=$VERSION_NAME"
+          echo "Derived VERSION_CODE=$VERSION_CODE"
+
+          # Fetch all remote tags to check release history
+          git fetch --tags --force
+
+          # Check existing tags for any versionCode >= target VERSION_CODE
+          MAX_EXISTING_CODE=0
+          for EXISTING_TAG in $(git tag -l "v*"); do
+            if [ "$EXISTING_TAG" != "$TAG" ] && [[ "$EXISTING_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              E_NAME="${EXISTING_TAG#v}"
+              E_MAJOR=$(echo "$E_NAME" | cut -d'.' -f1)
+              E_MINOR=$(echo "$E_NAME" | cut -d'.' -f2)
+              E_PATCH=$(echo "$E_NAME" | cut -d'.' -f3)
+
+              if [ "$E_MAJOR" -lt 20000 ] && [ "$E_MINOR" -lt 100 ] && [ "$E_PATCH" -lt 100 ]; then
+                E_CODE=$(( E_MAJOR * 10000 + E_MINOR * 100 + E_PATCH ))
+                if [ "$E_CODE" -gt "$MAX_EXISTING_CODE" ]; then
+                  MAX_EXISTING_CODE=$E_CODE
+                fi
+                if [ "$E_CODE" -ge "$VERSION_CODE" ]; then
+                  echo "Error: Version tag '$TAG' (versionCode $VERSION_CODE) is not strictly greater than existing release tag '$EXISTING_TAG' (versionCode $E_CODE)."
+                  echo "New releases must have a strictly increasing versionCode."
+                  exit 1
+                fi
+              fi
+            fi
+          done
+
+          echo "Version ordering guard passed: target $VERSION_CODE is strictly greater than maximum existing $MAX_EXISTING_CODE"
+
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
+          echo "VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+
       - name: Build Release APK and AAB
         env:
           KEYSTORE_PATH: my-upload-key.jks
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew assembleRelease bundleRelease
+        run: ./gradlew assembleRelease bundleRelease -PversionCode=${VERSION_CODE} -PversionName=${VERSION_NAME}
 
       - name: Verify and Prepare Release Artifacts
         run: |
@@ -85,6 +153,33 @@ jobs:
         with:
           name: app-release-aab
           path: app/build/outputs/bundle/release/app-release.aab
+
+      - name: Pre-publish Release Ordering Guard Recheck
+        run: |
+          echo "Re-checking release state prior to publishing..."
+          git fetch --tags --force
+
+          TAG="${GITHUB_REF_NAME}"
+          VERSION_CODE="${VERSION_CODE}"
+
+          for EXISTING_TAG in $(git tag -l "v*"); do
+            if [ "$EXISTING_TAG" != "$TAG" ] && [[ "$EXISTING_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              E_NAME="${EXISTING_TAG#v}"
+              E_MAJOR=$(echo "$E_NAME" | cut -d'.' -f1)
+              E_MINOR=$(echo "$E_NAME" | cut -d'.' -f2)
+              E_PATCH=$(echo "$E_NAME" | cut -d'.' -f3)
+
+              if [ "$E_MAJOR" -lt 20000 ] && [ "$E_MINOR" -lt 100 ] && [ "$E_PATCH" -lt 100 ]; then
+                E_CODE=$(( E_MAJOR * 10000 + E_MINOR * 100 + E_PATCH ))
+                if [ "$E_CODE" -ge "$VERSION_CODE" ]; then
+                  echo "Error: Pre-publish check failed. Remote tag '$EXISTING_TAG' (versionCode $E_CODE) is >= target versionCode $VERSION_CODE."
+                  echo "Aborting release publication."
+                  exit 1
+                fi
+              fi
+            fi
+          done
+          echo "Pre-publish release ordering recheck passed."
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2

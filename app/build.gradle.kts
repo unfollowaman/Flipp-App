@@ -8,12 +8,49 @@ android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
+  val resolvedVersionCode: Int = run {
+    val rawProp = if (providers.gradleProperty("versionCode").isPresent) {
+      providers.gradleProperty("versionCode").get()
+    } else {
+      findProperty("versionCode")?.toString()
+    }
+
+    if (rawProp == null) {
+      1
+    } else {
+      val code = rawProp.toIntOrNull()
+        ?: throw GradleException("Invalid versionCode '$rawProp': must be a positive integer within 1..2147483647.")
+      if (code <= 0) {
+        throw GradleException("Invalid versionCode '$rawProp': must be a positive integer within 1..2147483647.")
+      }
+      code
+    }
+  }
+
+  val resolvedVersionName: String = run {
+    val rawProp = if (providers.gradleProperty("versionName").isPresent) {
+      providers.gradleProperty("versionName").get()
+    } else {
+      findProperty("versionName")?.toString()
+    }
+
+    if (rawProp == null) {
+      "1.0.0-dev"
+    } else {
+      val trimmed = rawProp.trim()
+      if (trimmed.isEmpty()) {
+        throw GradleException("Invalid versionName '$rawProp': must not be empty or blank.")
+      }
+      trimmed
+    }
+  }
+
   defaultConfig {
     applicationId = "com.aistudio.flipp.zkxqpv"
     minSdk = 26
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = resolvedVersionCode
+    versionName = resolvedVersionName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
