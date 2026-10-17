@@ -16,6 +16,7 @@
 local.properties
 .env
 debug.keystore
+*.jks
 app/build
 test_output.txt
 .build-outputs/
