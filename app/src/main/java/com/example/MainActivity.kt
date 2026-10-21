@@ -1769,171 +1769,214 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                 )
             }
             2 -> {
-                // Set Range UI
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Specify Page Range (1 to $totalPages)",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BlackColor,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    
-                    BrutalistShadowBox(
-                        backgroundColor = CreamColor,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("From Page:", fontWeight = FontWeight.Bold)
-                                    OutlinedTextField(
-                                        value = startPageStr,
-                                        onValueChange = { startPageStr = it },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = BlackColor,
-                                            unfocusedBorderColor = BlackColor
-                                        ),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .semantics { contentDescription = "Start page number" },
-                                        singleLine = true
-                                    )
-                                }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("To Page:", fontWeight = FontWeight.Bold)
-                                    OutlinedTextField(
-                                        value = endPageStr,
-                                        onValueChange = { endPageStr = it },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedBorderColor = BlackColor,
-                                            unfocusedBorderColor = BlackColor
-                                        ),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .semantics { contentDescription = "End page number" },
-                                        singleLine = true
-                                    )
-                                }
-                            }
+                SplitPdfRangeStage(
+                    totalPages = totalPages,
+                    startPageStr = startPageStr,
+                    onStartPageStrChange = { startPageStr = it },
+                    endPageStr = endPageStr,
+                    onEndPageStrChange = { endPageStr = it },
+                    onNext = {
+                        val start = startPageStr.toIntOrNull() ?: 1
+                        val end = endPageStr.toIntOrNull() ?: totalPages
+                        if (start < 1 || end > totalPages || start > end) {
+                            Toast.makeText(context, "No valid pages in range.", Toast.LENGTH_LONG).show()
+                        } else {
+                            stage = 3
                         }
                     }
-                    
-                    BrutalistButton(
-                        text = "Next ➜",
-                        onClick = {
-                            val start = startPageStr.toIntOrNull() ?: 1
-                            val end = endPageStr.toIntOrNull() ?: totalPages
-                            if (start < 1 || end > totalPages || start > end) {
-                                Toast.makeText(context, "No valid pages in range.", Toast.LENGTH_LONG).show()
-                            } else {
-                                stage = 3
-                            }
-                        },
-                        backgroundColor = SkyBlueColor
-                    )
-                }
+                )
             }
             3 -> {
-                // Confirmation / Review
                 val rangeStart = startPageStr.toIntOrNull() ?: 1
                 val rangeEnd = endPageStr.toIntOrNull() ?: totalPages
                 
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Review Extraction Settings",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BlackColor,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                    
-                    BrutalistShadowBox(
-                        backgroundColor = CreamColor,
-                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("Total source document pages: $totalPages", fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text("Extracted set: Page $rangeStart to Page $rangeEnd", fontWeight = FontWeight.Medium)
-                            Text("Total extracted pages: ${rangeEnd - rangeStart + 1}", fontWeight = FontWeight.Medium)
-                        }
-                    }
+                SplitPdfReviewStage(
+                    totalPages = totalPages,
+                    rangeStart = rangeStart,
+                    rangeEnd = rangeEnd,
+                    onConvertAllPages = {
+                        stage = 4
+                        progressVal = 0.5f // Quick transition for direct range extraction
+                        coroutineScope.launch(Dispatchers.IO) {
+                            try {
+                                val tempFile = File.createTempFile("split_", ".pdf", context.cacheDir)
+                                tempPdfFile = tempFile
 
-                    BrutalistButton(
-                        text = "Convert All Pages →",
-                        onClick = {
-                            stage = 4
-                            progressVal = 0.5f // Quick transition for direct range extraction
-                            coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    val tempFile = File.createTempFile("split_", ".pdf", context.cacheDir)
-                                    tempPdfFile = tempFile
-                                    
-                                    val fos = FileOutputStream(tempFile)
-                                    PdfUtils.splitPdf(
-                                        context = context,
-                                        pdfUri = selectedPdfUri!!,
-                                        startPage = rangeStart,
-                                        endPage = rangeEnd,
-                                        outputStream = fos
-                                    )
-                                    
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "Split Completed successfully!", Toast.LENGTH_SHORT).show()
-                                        stage = 5
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        Toast.makeText(context, "No valid pages in range.", Toast.LENGTH_LONG).show()
-                                        stage = 1
-                                    }
+                                val fos = FileOutputStream(tempFile)
+                                PdfUtils.splitPdf(
+                                    context = context,
+                                    pdfUri = selectedPdfUri!!,
+                                    startPage = rangeStart,
+                                    endPage = rangeEnd,
+                                    outputStream = fos
+                                )
+
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Split Completed successfully!", Toast.LENGTH_SHORT).show()
+                                    stage = 5
+                                }
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "No valid pages in range.", Toast.LENGTH_LONG).show()
+                                    stage = 1
                                 }
                             }
-                        },
-                        backgroundColor = SkyBlueColor
-                    )
-                }
+                        }
+                    }
+                )
             }
             4 -> {
                 StageProgressBar(progress = progressVal, label = "Splitting PDF... extracting ranges...")
             }
             5 -> {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "🎉 Pages Extracted Successfully!",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = BlackColor,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                    
-                    BrutalistButton(
-                        text = "Download Combined PDF 📁",
-                        onClick = { pdfSaver.launch("split_document.pdf") },
-                        backgroundColor = MintColor
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    BrutalistButton(
-                        text = "Convert another file ↺",
-                        onClick = {
-                            selectedPdfUri = null
-                            totalPages = 1
-                            tempPdfFile = null
-                            stage = 1
-                        },
-                        backgroundColor = SkyBlueColor
-                    )
+                SplitPdfSuccessStage(
+                    onDownload = { pdfSaver.launch("split_document.pdf") },
+                    onCreateAnother = {
+                        selectedPdfUri = null
+                        totalPages = 1
+                        tempPdfFile = null
+                        stage = 1
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SplitPdfRangeStage(
+    totalPages: Int,
+    startPageStr: String,
+    onStartPageStrChange: (String) -> Unit,
+    endPageStr: String,
+    onEndPageStrChange: (String) -> Unit,
+    onNext: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Specify Page Range (1 to $totalPages)",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = BlackColor,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        BrutalistShadowBox(
+            backgroundColor = CreamColor,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("From Page:", fontWeight = FontWeight.Bold)
+                        OutlinedTextField(
+                            value = startPageStr,
+                            onValueChange = onStartPageStrChange,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = BlackColor,
+                                unfocusedBorderColor = BlackColor
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .semantics { contentDescription = "Start page number" },
+                            singleLine = true
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("To Page:", fontWeight = FontWeight.Bold)
+                        OutlinedTextField(
+                            value = endPageStr,
+                            onValueChange = onEndPageStrChange,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = BlackColor,
+                                unfocusedBorderColor = BlackColor
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .semantics { contentDescription = "End page number" },
+                            singleLine = true
+                        )
+                    }
                 }
             }
         }
+
+        BrutalistButton(
+            text = "Next ➜",
+            onClick = onNext,
+            backgroundColor = SkyBlueColor
+        )
+    }
+}
+
+@Composable
+private fun SplitPdfReviewStage(
+    totalPages: Int,
+    rangeStart: Int,
+    rangeEnd: Int,
+    onConvertAllPages: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Review Extraction Settings",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = BlackColor,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        BrutalistShadowBox(
+            backgroundColor = CreamColor,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Total source document pages: $totalPages", fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Extracted set: Page $rangeStart to Page $rangeEnd", fontWeight = FontWeight.Medium)
+                Text("Total extracted pages: ${rangeEnd - rangeStart + 1}", fontWeight = FontWeight.Medium)
+            }
+        }
+
+        BrutalistButton(
+            text = "Convert All Pages →",
+            onClick = onConvertAllPages,
+            backgroundColor = SkyBlueColor
+        )
+    }
+}
+
+@Composable
+private fun SplitPdfSuccessStage(
+    onDownload: () -> Unit,
+    onCreateAnother: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "🎉 Pages Extracted Successfully!",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = BlackColor,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        BrutalistButton(
+            text = "Download Combined PDF 📁",
+            onClick = onDownload,
+            backgroundColor = MintColor
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        BrutalistButton(
+            text = "Convert another file ↺",
+            onClick = onCreateAnother,
+            backgroundColor = SkyBlueColor
+        )
     }
 }
 
