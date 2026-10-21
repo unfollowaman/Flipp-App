@@ -210,4 +210,16 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onNode(androidx.compose.ui.test.hasContentDescription("Text content for PDF"))
             .assertExists()
     }
+
+    @Test
+    fun splitPdfScreenRendersDropZoneInitially() {
+        composeTestRule.setContent {
+            SplitPdfScreen(onBack = {})
+        }
+
+        composeTestRule.onAllNodesWithText("Split PDF")
+            .assertCountEquals(2) // Navbar title + Header card title
+        composeTestRule.onNodeWithText("Extract specific page range into a separate file.")
+            .assertExists()
+    }
 }
