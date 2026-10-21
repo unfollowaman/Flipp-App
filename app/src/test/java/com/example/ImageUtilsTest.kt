@@ -49,6 +49,39 @@ class ImageUtilsTest {
     }
 
     @Test
+    fun testAddTextWatermark_invalidColor_fallsBackToBlack() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+
+        // Create dummy base image
+        val baseBitmap = Bitmap.createBitmap(100, 100, Bitmap.Config.ARGB_8888)
+        val baseFile = File(context.cacheDir, "test_base_invalid_color.png")
+        FileOutputStream(baseFile).use { fos ->
+            baseBitmap.compress(Bitmap.CompressFormat.PNG, 100, fos)
+        }
+        val baseUri = android.net.Uri.fromFile(baseFile)
+
+        val outputStream = ByteArrayOutputStream()
+
+        ImageUtils.addWatermark(
+            context = context,
+            baseImageUri = baseUri,
+            watermarkType = "text",
+            watermarkText = "WATERMARK_INVALID_COLOR",
+            watermarkImageUri = null,
+            position = "center",
+            opacity = 0.5f,
+            rotation = 0f,
+            size = 1.0f,
+            colorStr = "invalid_hex_color",
+            outputStream = outputStream
+        )
+
+        val resultBytes = outputStream.toByteArray()
+        assertNotNull(resultBytes)
+        assert(resultBytes.isNotEmpty())
+    }
+
+    @Test
     fun testAddImageWatermark() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
 
