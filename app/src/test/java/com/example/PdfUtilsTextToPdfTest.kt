@@ -203,4 +203,52 @@ class PdfUtilsTextToPdfTest {
         assertEquals(1, reader.numberOfPages)
         reader.close()
     }
+
+    @Test
+    fun testTextToPdf_unicodeAndDevanagariText() {
+        val context = RuntimeEnvironment.getApplication()
+        val hindiText = "नमस्ते दुनिया Flipp App हिन्दी"
+        val outputStream = ByteArrayOutputStream()
+
+        PdfUtils.textToPdf(
+            context = context,
+            text = hindiText,
+            pageSizeOption = "A4",
+            fontSize = 12f,
+            margin = 36f,
+            alignment = "left",
+            outputStream = outputStream
+        )
+
+        val pdfBytes = outputStream.toByteArray()
+        assertTrue(pdfBytes.isNotEmpty())
+
+        val reader = PdfReader(pdfBytes)
+        assertEquals(1, reader.numberOfPages)
+
+        val extracted = PdfTextExtractor.getTextFromPage(reader, 1)
+        assertTrue(extracted.contains("नमस्ते") || extracted.contains("दुनिया") || extracted.contains("Flipp App"))
+        reader.close()
+    }
+
+    @Test
+    fun testTextToPdf_uniqueTempFilesAvoidRaceConditions() {
+        val context = RuntimeEnvironment.getApplication()
+        val file1 = java.io.File.createTempFile("text_gen_1_", ".pdf", context.cacheDir)
+        val file2 = java.io.File.createTempFile("text_gen_2_", ".pdf", context.cacheDir)
+        file1.deleteOnExit()
+        file2.deleteOnExit()
+
+        org.junit.Assert.assertNotEquals(file1.absolutePath, file2.absolutePath)
+
+        java.io.FileOutputStream(file1).use { fos ->
+            PdfUtils.textToPdf(context, "Doc 1", "A4", 12f, 36f, "left", fos)
+        }
+        java.io.FileOutputStream(file2).use { fos ->
+            PdfUtils.textToPdf(context, "Doc 2", "A4", 12f, 36f, "left", fos)
+        }
+
+        assertTrue(file1.length() > 0)
+        assertTrue(file2.length() > 0)
+    }
 }

@@ -78,7 +78,7 @@ class PdfUtilsReadBytesTest {
     }
 
     @Test
-    fun testReadBytesFromUri_nullInputStream_returnsEmptyByteArray() {
+    fun testReadBytesFromUri_nullInputStream_returnsNull() {
         val app = RuntimeEnvironment.getApplication()
         val provider = ExceptionThrowingProvider()
         val info = ProviderInfo().apply { authority = "exception.provider" }
@@ -88,8 +88,19 @@ class PdfUtilsReadBytesTest {
         val nullUri = Uri.parse("content://exception.provider/null_file")
         val result = invokeReadBytesFromUri(app, nullUri)
 
-        assertNotNull(result)
-        assertEquals(0, result?.size)
+        assertNull(result)
+    }
+
+    @Test
+    fun testReadBytesFromUri_emptyFile_returnsNull() {
+        val app = RuntimeEnvironment.getApplication()
+        val emptyFile = File.createTempFile("empty_file", ".tmp")
+        emptyFile.deleteOnExit()
+
+        val emptyUri = Uri.fromFile(emptyFile)
+        val result = invokeReadBytesFromUri(app, emptyUri)
+
+        assertNull(result)
     }
 
     @Test
@@ -115,13 +126,14 @@ class PdfUtilsReadBytesTest {
         val validImageFile = createSampleImageFile()
         val validUri = Uri.fromFile(validImageFile)
         val invalidUri = Uri.parse("content://exception.provider/throw_exception")
+        val nullUri = Uri.parse("content://exception.provider/null_file")
 
         val outputStream = ByteArrayOutputStream()
         var progressCalls = 0
 
         PdfUtils.combineImagesToPdf(
             context = app,
-            imageUris = listOf(validUri, invalidUri),
+            imageUris = listOf(validUri, invalidUri, nullUri),
             pageSizeOption = "LETTER",
             outputStream = outputStream,
             onProgress = { _, _ -> progressCalls++ }
@@ -132,5 +144,29 @@ class PdfUtilsReadBytesTest {
         val resultBytes = outputStream.toByteArray()
         assertNotNull(resultBytes)
         assertTrue(resultBytes.isNotEmpty())
+    }
+
+    @Test
+    fun testCombineImagesToPdf_allInvalid_throwsIllegalArgumentException() {
+        val app = RuntimeEnvironment.getApplication()
+        val provider = ExceptionThrowingProvider()
+        val info = ProviderInfo().apply { authority = "exception.provider" }
+        provider.attachInfo(app, info)
+        ShadowContentResolver.registerProviderInternal("exception.provider", provider)
+
+        val invalidUri = Uri.parse("content://exception.provider/throw_exception")
+        val nullUri = Uri.parse("content://exception.provider/null_file")
+
+        val outputStream = ByteArrayOutputStream()
+
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            PdfUtils.combineImagesToPdf(
+                context = app,
+                imageUris = listOf(invalidUri, nullUri),
+                pageSizeOption = "A4",
+                outputStream = outputStream,
+                onProgress = { _, _ -> }
+            )
+        }
     }
 }

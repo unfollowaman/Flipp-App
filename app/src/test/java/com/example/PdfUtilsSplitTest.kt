@@ -88,4 +88,40 @@ class PdfUtilsSplitTest {
         // This should not throw an exception
         PdfUtils.splitPdf(context, uri, 1, 2, outputStream)
     }
+
+    @Test
+    fun testSplitPdf_extractedPageCount_matchesRange() {
+        val context = RuntimeEnvironment.getApplication()
+        val pdfFile = createDummyPdf()
+        val uri = Uri.fromFile(pdfFile)
+
+        val outputStream = ByteArrayOutputStream()
+        PdfUtils.splitPdf(context, uri, 2, 3, outputStream)
+
+        val bytes = outputStream.toByteArray()
+        org.junit.Assert.assertTrue(bytes.isNotEmpty())
+        val reader = com.itextpdf.text.pdf.PdfReader(bytes)
+        assertEquals(2, reader.numberOfPages)
+        reader.close()
+    }
+
+    @Test
+    fun testSplitPdf_survivesConfigurationState_tempPdfFileSaved() {
+        val context = RuntimeEnvironment.getApplication()
+        val pdfFile = createDummyPdf()
+        val uri = Uri.fromFile(pdfFile)
+
+        val tempOutputFile = File.createTempFile("test_split_output_", ".pdf", context.cacheDir)
+        tempOutputFile.deleteOnExit()
+
+        FileOutputStream(tempOutputFile).use { fos ->
+            PdfUtils.splitPdf(context, uri, 1, 1, fos)
+        }
+
+        org.junit.Assert.assertTrue(tempOutputFile.exists())
+        org.junit.Assert.assertTrue(tempOutputFile.length() > 0)
+        val reader = com.itextpdf.text.pdf.PdfReader(tempOutputFile.absolutePath)
+        assertEquals(1, reader.numberOfPages)
+        reader.close()
+    }
 }

@@ -154,4 +154,38 @@ class PdfUtilsAddPageNumbersTest {
         val msg = exception.message ?: ""
         assertTrue(msg.contains("Failed to open file descriptor") || msg.contains("ShadowContentResolver"))
     }
+
+    @Test
+    fun testAddPageNumbers_nonZeroCropBoxOrigin() {
+        val context = RuntimeEnvironment.getApplication()
+        val file = File.createTempFile("cropbox_test", ".pdf")
+        file.deleteOnExit()
+
+        // Create PDF with custom page size / cropbox with non-zero origin
+        val document = Document(com.itextpdf.text.Rectangle(50f, 50f, 500f, 800f))
+        PdfWriter.getInstance(document, FileOutputStream(file))
+        document.open()
+        document.add(Paragraph("Page with non-zero origin"))
+        document.close()
+
+        val uri = Uri.fromFile(file)
+        val outputStream = ByteArrayOutputStream()
+
+        PdfUtils.addPageNumbers(
+            context = context,
+            pdfUri = uri,
+            position = "bottom-center",
+            startNumber = 42,
+            outputStream = outputStream
+        )
+
+        val resultBytes = outputStream.toByteArray()
+        assertTrue(resultBytes.isNotEmpty())
+
+        val reader = PdfReader(resultBytes)
+        assertEquals(1, reader.numberOfPages)
+        val text = PdfTextExtractor.getTextFromPage(reader, 1)
+        assertTrue(text.contains("42"))
+        reader.close()
+    }
 }

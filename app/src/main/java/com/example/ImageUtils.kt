@@ -12,6 +12,23 @@ import java.io.OutputStream
 
 object ImageUtils {
 
+    /**
+     * Determines whether a content or file URI points to a PNG image by checking
+     * ContentResolver MIME type and filename extension.
+     */
+    fun isPngImage(context: Context, uri: Uri): Boolean {
+        val mimeType = try {
+            context.contentResolver.getType(uri)
+        } catch (e: Exception) {
+            null
+        }
+        if (mimeType != null && mimeType.equals("image/png", ignoreCase = true)) {
+            return true
+        }
+        val uriStr = uri.toString().lowercase()
+        return uriStr.endsWith(".png") || uriStr.contains(".png?") || uriStr.endsWith("png")
+    }
+
     fun addWatermark(
         context: Context,
         baseImageUri: Uri,
@@ -28,9 +45,9 @@ object ImageUtils {
         val options = BitmapFactory.Options()
         options.inMutable = true
 
-        val inputStream = context.contentResolver.openInputStream(baseImageUri) ?: throw Exception("Failed to open base image")
-        val baseBitmap = BitmapFactory.decodeStream(inputStream, null, options) ?: throw Exception("Failed to decode base image")
-        inputStream.close()
+        val baseBitmap = context.contentResolver.openInputStream(baseImageUri)?.use { stream ->
+            BitmapFactory.decodeStream(stream, null, options)
+        } ?: throw Exception("Failed to decode base image")
 
         val canvas = Canvas(baseBitmap)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -144,8 +161,11 @@ object ImageUtils {
         }
 
         // Save to output stream
-        // use original format or JPEG as default
-        val compressFormat = if (baseImageUri.toString().lowercase().endsWith("png")) {
+        // Preserve PNG format and transparency if input is PNG, MIME indicates PNG, or has alpha channel
+        val isPng = isPngImage(context, baseImageUri) ||
+                options.outMimeType?.equals("image/png", ignoreCase = true) == true ||
+                baseBitmap.hasAlpha()
+        val compressFormat = if (isPng) {
             Bitmap.CompressFormat.PNG
         } else {
             Bitmap.CompressFormat.JPEG

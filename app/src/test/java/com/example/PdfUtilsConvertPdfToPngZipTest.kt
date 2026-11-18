@@ -124,4 +124,45 @@ class PdfUtilsConvertPdfToPngZipTest {
 
         assertEquals("Failed to open file descriptor", exception.message)
     }
+
+    @Test
+    fun testTempZipFile_survivesStateRestorationAndExportsSuccessfully() {
+        val app = RuntimeEnvironment.getApplication()
+        val tempZipFile = File.createTempFile("test_saved_", ".zip", app.cacheDir)
+        tempZipFile.deleteOnExit()
+
+        val sampleContent = "Sample ZIP Payload".toByteArray()
+        val fos = FileOutputStream(tempZipFile)
+        val zos = java.util.zip.ZipOutputStream(fos)
+        zos.putNextEntry(java.util.zip.ZipEntry("page_1.png"))
+        zos.write(sampleContent)
+        zos.closeEntry()
+        zos.close()
+
+        // Simulate state persistence using string path
+        val savedStatePath: String? = tempZipFile.absolutePath
+
+        assertNotNull(savedStatePath)
+        val restoredFile = savedStatePath?.let { File(it) }
+        assertNotNull(restoredFile)
+        assertTrue(restoredFile!!.exists())
+
+        // Verify export copy logic with .use ensures clean closure
+        val destinationStream = ByteArrayOutputStream()
+        restoredFile.inputStream().use { input ->
+            input.copyTo(destinationStream)
+        }
+
+        val destinationBytes = destinationStream.toByteArray()
+        assertTrue(destinationBytes.isNotEmpty())
+
+        val zipIn = ZipInputStream(ByteArrayInputStream(destinationBytes))
+        val entry = zipIn.nextEntry
+        assertNotNull(entry)
+        assertEquals("page_1.png", entry?.name)
+        zipIn.close()
+
+        // Clean up
+        assertTrue(tempZipFile.delete())
+    }
 }

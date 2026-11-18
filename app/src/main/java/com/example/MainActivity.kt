@@ -152,25 +152,29 @@ fun TextToPdfScreen(onBack: () -> Unit) {
     var alignment by rememberSaveable { mutableStateOf("left") } // left, center, right, justified
 
     var progressVal by remember { mutableFloatStateOf(0f) }
-    var tempPdfFile by remember { mutableStateOf<File?>(null) }
+    var tempPdfFilePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
-            if (uri != null && tempPdfFile != null) {
-                coroutineScope.launch(Dispatchers.IO) {
-                    try {
-                        context.contentResolver.openOutputStream(uri)?.use { out ->
-                            tempPdfFile!!.inputStream().use { input ->
-                                input.copyTo(out)
+            val path = tempPdfFilePath
+            if (uri != null && path != null) {
+                val file = File(path)
+                if (file.exists()) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            context.contentResolver.openOutputStream(uri)?.use { out ->
+                                file.inputStream().use { input ->
+                                    input.copyTo(out)
+                                }
                             }
-                        }
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Text to PDF saved successfully!", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Text to PDF saved successfully!", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }
@@ -224,23 +228,22 @@ fun TextToPdfScreen(onBack: () -> Unit) {
                                         else -> 36f
                                     }
 
-                                    val cacheDir = context.cacheDir
-                                    val file = File(cacheDir, "text_generated.pdf")
-                                    val fileOut = FileOutputStream(file)
-                                    PdfUtils.textToPdf(
-                                        context = context,
-                                        text = textInput,
-                                        pageSizeOption = pageSizeSelection,
-                                        fontSize = size,
-                                        margin = marginFloat,
-                                        alignment = alignment,
-                                        outputStream = fileOut
-                                    )
-                                    fileOut.close()
+                                    val file = File.createTempFile("text_generated_", ".pdf", context.cacheDir)
+                                    tempPdfFilePath = file.absolutePath
+                                    FileOutputStream(file).use { fileOut ->
+                                        PdfUtils.textToPdf(
+                                            context = context,
+                                            text = textInput,
+                                            pageSizeOption = pageSizeSelection,
+                                            fontSize = size,
+                                            margin = marginFloat,
+                                            alignment = alignment,
+                                            outputStream = fileOut
+                                        )
+                                    }
 
                                     withContext(Dispatchers.Main) {
                                         progressVal = 1f
-                                        tempPdfFile = file
                                         stage = 4
                                     }
                                 } catch (e: Exception) {
@@ -263,9 +266,9 @@ fun TextToPdfScreen(onBack: () -> Unit) {
                 TextToPdfSuccessStage(
                     onDownload = { pdfSaver.launch("text_generated.pdf") },
                     onCreateAnother = {
-                        tempPdfFile?.delete()
+                        tempPdfFilePath?.let { File(it).delete() }
+                        tempPdfFilePath = null
                         textInput = ""
-                        tempPdfFile = null
                         stage = 1
                     }
                 )
@@ -852,24 +855,28 @@ fun PdfToPngScreen(onBack: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     
     var stage by rememberSaveable { mutableIntStateOf(1) }
-    var selectedPdfUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedPdfUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedPdfUri = selectedPdfUriString?.let { Uri.parse(it) }
     var scaleOption by rememberSaveable { mutableIntStateOf(2) } // 1x, 2x, 3x
     var progressVal by remember { mutableFloatStateOf(0f) }
     var progressLabel by remember { mutableStateOf("") }
     
     // Extracted thumbnails of first few pages mapping Stage 3
     val pdfThumbnails = remember { mutableStateListOf<Bitmap>() }
-    var tempZipFile by remember { mutableStateOf<File?>(null) }
+    var tempZipFilePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     // Saver contract
     val fileSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip"),
         onResult = { uri ->
-            if (uri != null && tempZipFile != null) {
+            val zipFile = tempZipFilePath?.let { File(it) }
+            if (uri != null && zipFile != null && zipFile.exists()) {
                 coroutineScope.launch(Dispatchers.IO) {
                     try {
                         context.contentResolver.openOutputStream(uri)?.use { out ->
-                            tempZipFile!!.inputStream().copyTo(out)
+                            zipFile.inputStream().use { input ->
+                                input.copyTo(out)
+                            }
                         }
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "ZIP Saved successfully!", Toast.LENGTH_SHORT).show()
@@ -880,6 +887,8 @@ fun PdfToPngScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+            } else if (uri != null) {
+                Toast.makeText(context, "Temporary ZIP file not found. Please convert again.", Toast.LENGTH_LONG).show()
             }
         }
     )
@@ -898,7 +907,7 @@ fun PdfToPngScreen(onBack: () -> Unit) {
                     prompt = "Please select a PDF file.",
                     badgeColor = YellowColor,
                     onFileSelected = { uri ->
-                        selectedPdfUri = uri
+                        selectedPdfUriString = uri.toString()
                         stage = 2
                         // Load thumbnails in stage background
                         coroutineScope.launch {
@@ -1004,23 +1013,30 @@ fun PdfToPngScreen(onBack: () -> Unit) {
                     BrutalistButton(
                         text = "Convert All Pages →",
                         onClick = {
+                            val pdfUri = selectedPdfUri
+                            if (pdfUri == null) {
+                                Toast.makeText(context, "PDF file is no longer available. Please select the file again.", Toast.LENGTH_LONG).show()
+                                stage = 1
+                                return@BrutalistButton
+                            }
                             stage = 4
                             progressVal = 0.1f
                             progressLabel = "Starting conversion..."
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
                                     val tempFile = File.createTempFile("converted_zip_", ".zip", context.cacheDir)
-                                    tempZipFile = tempFile
+                                    tempZipFilePath = tempFile.absolutePath
                                     
-                                    val fos = FileOutputStream(tempFile)
-                                    PdfUtils.convertPdfToPngZip(
-                                        context = context,
-                                        pdfUri = selectedPdfUri!!,
-                                        scale = scaleOption,
-                                        outputStream = fos
-                                    ) { current, total ->
-                                        progressVal = current.toFloat() / total
-                                        progressLabel = "Converting page $current of $total... (${(progressVal * 100).toInt()}%)"
+                                    FileOutputStream(tempFile).use { fos ->
+                                        PdfUtils.convertPdfToPngZip(
+                                            context = context,
+                                            pdfUri = pdfUri,
+                                            scale = scaleOption,
+                                            outputStream = fos
+                                        ) { current, total ->
+                                            progressVal = current.toFloat() / total
+                                            progressLabel = "Converting page $current of $total... (${(progressVal * 100).toInt()}%)"
+                                        }
                                     }
                                     
                                     withContext(Dispatchers.Main) {
@@ -1074,9 +1090,10 @@ fun PdfToPngScreen(onBack: () -> Unit) {
                     BrutalistButton(
                         text = "Convert another file ↺",
                         onClick = {
-                            selectedPdfUri = null
+                            tempZipFilePath?.let { File(it).delete() }
+                            tempZipFilePath = null
+                            selectedPdfUriString = null
                             pdfThumbnails.clear()
-                            tempZipFile = null
                             stage = 1
                         },
                         backgroundColor = YellowColor
@@ -1102,14 +1119,16 @@ fun ImagesToPdfScreen(onBack: () -> Unit) {
     var progressVal by remember { mutableFloatStateOf(0f) }
     var progressLabel by remember { mutableStateOf("") }
     
-    var tempPdfFile by remember { mutableStateOf<File?>(null) }
+    var tempPdfFilePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
         onResult = { uris ->
             if (uris.isNotEmpty()) {
                 selectedImageUris.addAll(uris)
-                stage = 2
+                if (stage == 1) {
+                    stage = 2
+                }
                 
                 // Load thumbnails concurrently with limited parallelism to prevent OOM
                 coroutineScope.launch {
@@ -1134,11 +1153,14 @@ fun ImagesToPdfScreen(onBack: () -> Unit) {
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
-            if (uri != null && tempPdfFile != null) {
+            val pdfFile = tempPdfFilePath?.let { File(it) }
+            if (uri != null && pdfFile != null && pdfFile.exists()) {
                 coroutineScope.launch(Dispatchers.IO) {
                     try {
                         context.contentResolver.openOutputStream(uri)?.use { out ->
-                            tempPdfFile!!.inputStream().copyTo(out)
+                            pdfFile.inputStream().use { input ->
+                                input.copyTo(out)
+                            }
                         }
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "PDF saved successfully!", Toast.LENGTH_SHORT).show()
@@ -1203,17 +1225,18 @@ fun ImagesToPdfScreen(onBack: () -> Unit) {
                         coroutineScope.launch(Dispatchers.IO) {
                             try {
                                 val tempFile = File.createTempFile("combined_pdf_", ".pdf", context.cacheDir)
-                                tempPdfFile = tempFile
+                                tempPdfFilePath = tempFile.absolutePath
                                 
-                                val fos = FileOutputStream(tempFile)
-                                PdfUtils.combineImagesToPdf(
-                                    context = context,
-                                    imageUris = selectedImageUris.toList(),
-                                    pageSizeOption = pageSizeSelection,
-                                    outputStream = fos
-                                ) { current, total ->
-                                    progressVal = current.toFloat() / total
-                                    progressLabel = "Adding image $current of $total... (${(progressVal * 100).toInt()}%)"
+                                FileOutputStream(tempFile).use { fos ->
+                                    PdfUtils.combineImagesToPdf(
+                                        context = context,
+                                        imageUris = selectedImageUris.toList(),
+                                        pageSizeOption = pageSizeSelection,
+                                        outputStream = fos
+                                    ) { current, total ->
+                                        progressVal = current.toFloat() / total
+                                        progressLabel = "Adding image $current of $total... (${(progressVal * 100).toInt()}%)"
+                                    }
                                 }
 
                                 withContext(Dispatchers.Main) {
@@ -1237,9 +1260,10 @@ fun ImagesToPdfScreen(onBack: () -> Unit) {
                 ImagesToPdfSuccessStage(
                     onDownload = { pdfSaver.launch("combined_document.pdf") },
                     onCreateAnother = {
+                        tempPdfFilePath?.let { File(it).delete() }
+                        tempPdfFilePath = null
                         selectedImageUris.clear()
                         imageThumbnailsMap.clear()
-                        tempPdfFile = null
                         stage = 1
                     }
                 )
@@ -1458,14 +1482,16 @@ fun MergePdfScreen(onBack: () -> Unit) {
     
     var progressVal by remember { mutableFloatStateOf(0f) }
     var progressLabel by remember { mutableStateOf("") }
-    var tempPdfFile by remember { mutableStateOf<File?>(null) }
+    var tempPdfFilePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments(),
         onResult = { uris ->
             if (uris.isNotEmpty()) {
                 selectedPdfUris.addAll(uris)
-                stage = 2
+                if (stage < 2) {
+                    stage = 2
+                }
                 
                 // Load PDF sizes
                 coroutineScope.launch(Dispatchers.IO) {
@@ -1489,18 +1515,24 @@ fun MergePdfScreen(onBack: () -> Unit) {
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
-            if (uri != null && tempPdfFile != null) {
-                coroutineScope.launch(Dispatchers.IO) {
-                    try {
-                        context.contentResolver.openOutputStream(uri)?.use { out ->
-                            tempPdfFile!!.inputStream().copyTo(out)
-                        }
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Merged PDF saved successfully!", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error saving PDF: ${e.message}", Toast.LENGTH_LONG).show()
+            val path = tempPdfFilePath
+            if (uri != null && path != null) {
+                val file = File(path)
+                if (file.exists()) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            context.contentResolver.openOutputStream(uri)?.use { out ->
+                                file.inputStream().use { input ->
+                                    input.copyTo(out)
+                                }
+                            }
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Merged PDF saved successfully!", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Error saving PDF: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }
@@ -1627,16 +1659,17 @@ fun MergePdfScreen(onBack: () -> Unit) {
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
                                     val tempFile = File.createTempFile("merged_pdf_", ".pdf", context.cacheDir)
-                                    tempPdfFile = tempFile
+                                    tempPdfFilePath = tempFile.absolutePath
                                     
-                                    val fos = FileOutputStream(tempFile)
-                                    PdfUtils.mergePdfs(
-                                        context = context,
-                                        pdfUris = selectedPdfUris.toList(),
-                                        outputStream = fos
-                                    ) { merged, total ->
-                                        progressVal = merged.toFloat() / total
-                                        progressLabel = "Merged $merged of $total files... (${(progressVal * 100).toInt()}%)"
+                                    FileOutputStream(tempFile).use { fos ->
+                                        PdfUtils.mergePdfs(
+                                            context = context,
+                                            pdfUris = selectedPdfUris.toList(),
+                                            outputStream = fos
+                                        ) { merged, total ->
+                                            progressVal = merged.toFloat() / total
+                                            progressLabel = "Merged $merged of $total files... (${(progressVal * 100).toInt()}%)"
+                                        }
                                     }
                                     
                                     withContext(Dispatchers.Main) {
@@ -1682,9 +1715,10 @@ fun MergePdfScreen(onBack: () -> Unit) {
                     BrutalistButton(
                         text = "Convert another file ↺",
                         onClick = {
+                            tempPdfFilePath?.let { File(it).delete() }
+                            tempPdfFilePath = null
                             selectedPdfUris.clear()
                             pdfPageCounts.clear()
-                            tempPdfFile = null
                             stage = 1
                         },
                         backgroundColor = MintColor
@@ -1703,31 +1737,38 @@ fun SplitPdfScreen(onBack: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     
     var stage by rememberSaveable { mutableIntStateOf(1) }
-    var selectedPdfUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedPdfUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedPdfUri = selectedPdfUriString?.let { Uri.parse(it) }
     var totalPages by rememberSaveable { mutableIntStateOf(1) }
     
     // Inputs
-    var startPageStr by remember { mutableStateOf("1") }
-    var endPageStr by remember { mutableStateOf("1") }
+    var startPageStr by rememberSaveable { mutableStateOf("1") }
+    var endPageStr by rememberSaveable { mutableStateOf("1") }
     
     var progressVal by remember { mutableFloatStateOf(0f) }
-    var tempPdfFile by remember { mutableStateOf<File?>(null) }
+    var tempPdfFilePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
-            if (uri != null && tempPdfFile != null) {
-                coroutineScope.launch(Dispatchers.IO) {
-                    try {
-                        context.contentResolver.openOutputStream(uri)?.use { out ->
-                            tempPdfFile!!.inputStream().copyTo(out)
-                        }
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Split PDF saved successfully!", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error saving PDF: ${e.message}", Toast.LENGTH_LONG).show()
+            val path = tempPdfFilePath
+            if (uri != null && path != null) {
+                val file = File(path)
+                if (file.exists()) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            context.contentResolver.openOutputStream(uri)?.use { out ->
+                                file.inputStream().use { input ->
+                                    input.copyTo(out)
+                                }
+                            }
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Split PDF saved successfully!", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Error saving PDF: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }
@@ -1749,7 +1790,7 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                     prompt = "Extract specific page range into a separate file.",
                     badgeColor = SkyBlueColor,
                     onFileSelected = { uri ->
-                        selectedPdfUri = uri
+                        selectedPdfUriString = uri.toString()
                         coroutineScope.launch(Dispatchers.IO) {
                             try {
                                 val pages = PdfUtils.getPdfPageCount(context, uri)
@@ -1795,21 +1836,28 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                     rangeStart = rangeStart,
                     rangeEnd = rangeEnd,
                     onConvertAllPages = {
+                        val currentUri = selectedPdfUri
+                        if (currentUri == null) {
+                            Toast.makeText(context, "Please select a valid PDF first.", Toast.LENGTH_SHORT).show()
+                            stage = 1
+                            return@SplitPdfReviewStage
+                        }
                         stage = 4
                         progressVal = 0.5f // Quick transition for direct range extraction
                         coroutineScope.launch(Dispatchers.IO) {
                             try {
                                 val tempFile = File.createTempFile("split_", ".pdf", context.cacheDir)
-                                tempPdfFile = tempFile
+                                tempPdfFilePath = tempFile.absolutePath
 
-                                val fos = FileOutputStream(tempFile)
-                                PdfUtils.splitPdf(
-                                    context = context,
-                                    pdfUri = selectedPdfUri!!,
-                                    startPage = rangeStart,
-                                    endPage = rangeEnd,
-                                    outputStream = fos
-                                )
+                                FileOutputStream(tempFile).use { fos ->
+                                    PdfUtils.splitPdf(
+                                        context = context,
+                                        pdfUri = currentUri,
+                                        startPage = rangeStart,
+                                        endPage = rangeEnd,
+                                        outputStream = fos
+                                    )
+                                }
 
                                 withContext(Dispatchers.Main) {
                                     Toast.makeText(context, "Split Completed successfully!", Toast.LENGTH_SHORT).show()
@@ -1832,9 +1880,12 @@ fun SplitPdfScreen(onBack: () -> Unit) {
                 SplitPdfSuccessStage(
                     onDownload = { pdfSaver.launch("split_document.pdf") },
                     onCreateAnother = {
-                        selectedPdfUri = null
+                        tempPdfFilePath?.let { File(it).delete() }
+                        tempPdfFilePath = null
+                        selectedPdfUriString = null
                         totalPages = 1
-                        tempPdfFile = null
+                        startPageStr = "1"
+                        endPageStr = "1"
                         stage = 1
                     }
                 )
@@ -1988,28 +2039,35 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     
     var stage by rememberSaveable { mutableIntStateOf(1) }
-    var selectedPdfUri by remember { mutableStateOf<Uri?>(null) }
-    var password by remember { mutableStateOf("") }
+    var selectedPdfUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedPdfUri = selectedPdfUriString?.let { Uri.parse(it) }
+    var password by rememberSaveable { mutableStateOf("") }
     
-    var isPasswordVisible by remember { mutableStateOf(false) }
+    var isPasswordVisible by rememberSaveable { mutableStateOf(false) }
     var progressVal by remember { mutableFloatStateOf(0f) }
-    var tempPdfFile by remember { mutableStateOf<File?>(null) }
+    var tempPdfFilePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
-            if (uri != null && tempPdfFile != null) {
-                coroutineScope.launch(Dispatchers.IO) {
-                    try {
-                        context.contentResolver.openOutputStream(uri)?.use { out ->
-                            tempPdfFile!!.inputStream().copyTo(out)
-                        }
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Encrypted PDF protected successfully!", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+            val path = tempPdfFilePath
+            if (uri != null && path != null) {
+                val file = File(path)
+                if (file.exists()) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            context.contentResolver.openOutputStream(uri)?.use { out ->
+                                file.inputStream().use { input ->
+                                    input.copyTo(out)
+                                }
+                            }
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Encrypted PDF protected successfully!", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }
@@ -2031,7 +2089,7 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
                     prompt = "AES password-encrypt a PDF entirely on-device.",
                     badgeColor = YellowColor,
                     onFileSelected = { uri ->
-                        selectedPdfUri = uri
+                        selectedPdfUriString = uri.toString()
                         stage = 2
                     }
                 )
@@ -2121,20 +2179,27 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
                     BrutalistButton(
                         text = "Convert All Pages →",
                         onClick = {
+                            val currentUri = selectedPdfUri
+                            if (currentUri == null) {
+                                Toast.makeText(context, "Please select a valid PDF first.", Toast.LENGTH_SHORT).show()
+                                stage = 1
+                                return@BrutalistButton
+                            }
                             stage = 4
                             progressVal = 0.5f
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
                                     val tempFile = File.createTempFile("protected_pdf_", ".pdf", context.cacheDir)
-                                    tempPdfFile = tempFile
+                                    tempPdfFilePath = tempFile.absolutePath
                                     
-                                    val fos = FileOutputStream(tempFile)
-                                    PdfUtils.protectPdf(
-                                        context = context,
-                                        pdfUri = selectedPdfUri!!,
-                                        password = java.lang.String(password),
-                                        outputStream = fos
-                                    )
+                                    FileOutputStream(tempFile).use { fos ->
+                                        PdfUtils.protectPdf(
+                                            context = context,
+                                            pdfUri = currentUri,
+                                            password = password,
+                                            outputStream = fos
+                                        )
+                                    }
                                     
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(context, "Document Protected!", Toast.LENGTH_SHORT).show()
@@ -2179,9 +2244,10 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
                     BrutalistButton(
                         text = "Convert another file ↺",
                         onClick = {
-                            selectedPdfUri = null
+                            tempPdfFilePath?.let { File(it).delete() }
+                            tempPdfFilePath = null
+                            selectedPdfUriString = null
                             password = ""
-                            tempPdfFile = null
                             stage = 1
                         },
                         backgroundColor = YellowColor
@@ -2200,30 +2266,37 @@ fun AddPageNumScreen(onBack: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
     
     var stage by rememberSaveable { mutableIntStateOf(1) }
-    var selectedPdfUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedPdfUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedPdfUri = selectedPdfUriString?.let { Uri.parse(it) }
     
     // Config values
     var position by rememberSaveable { mutableStateOf("bottom-center") } // top-left ... bottom-right
-    var startNumStr by remember { mutableStateOf("1") }
+    var startNumStr by rememberSaveable { mutableStateOf("1") }
     
     var progressVal by remember { mutableFloatStateOf(0f) }
-    var tempPdfFile by remember { mutableStateOf<File?>(null) }
+    var tempPdfFilePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
-            if (uri != null && tempPdfFile != null) {
-                coroutineScope.launch(Dispatchers.IO) {
-                    try {
-                        context.contentResolver.openOutputStream(uri)?.use { out ->
-                            tempPdfFile!!.inputStream().copyTo(out)
-                        }
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Page numbered PDF saved successfully!", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+            val path = tempPdfFilePath
+            if (uri != null && path != null) {
+                val file = File(path)
+                if (file.exists()) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            context.contentResolver.openOutputStream(uri)?.use { out ->
+                                file.inputStream().use { input ->
+                                    input.copyTo(out)
+                                }
+                            }
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Page numbered PDF saved successfully!", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }
@@ -2247,7 +2320,7 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                     prompt = "Stamp page numbers with customizable position and offset start page.",
                     badgeColor = MintColor,
                     onFileSelected = { uri ->
-                        selectedPdfUri = uri
+                        selectedPdfUriString = uri.toString()
                         stage = 2
                     }
                 )
@@ -2298,7 +2371,7 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         listOf(0, 1, 2).forEach { colIdx ->
-                                            val index = rowIdx * 3 + colIdx
+                                             val index = rowIdx * 3 + colIdx
                                             val posItem = positionsList[index]
                                             val isSelected = position == posItem.first
                                             
@@ -2372,23 +2445,30 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                     BrutalistButton(
                         text = "Convert All Pages →",
                         onClick = {
+                            val currentUri = selectedPdfUri
+                            if (currentUri == null) {
+                                Toast.makeText(context, "Please select a valid PDF first.", Toast.LENGTH_SHORT).show()
+                                stage = 1
+                                return@BrutalistButton
+                            }
                             stage = 4
                             progressVal = 0.5f
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
                                     val tempFile = File.createTempFile("numbered_", ".pdf", context.cacheDir)
-                                    tempPdfFile = tempFile
+                                    tempPdfFilePath = tempFile.absolutePath
                                     
-                                    val fos = FileOutputStream(tempFile)
                                     val startNum = startNumStr.toIntOrNull() ?: 1
                                     
-                                    PdfUtils.addPageNumbers(
-                                        context = context,
-                                        pdfUri = selectedPdfUri!!,
-                                        position = position,
-                                        startNumber = startNum,
-                                        outputStream = fos
-                                    )
+                                    FileOutputStream(tempFile).use { fos ->
+                                        PdfUtils.addPageNumbers(
+                                            context = context,
+                                            pdfUri = currentUri,
+                                            position = position,
+                                            startNumber = startNum,
+                                            outputStream = fos
+                                        )
+                                    }
                                     
                                     withContext(Dispatchers.Main) {
                                         Toast.makeText(context, "Page Stamping complete!", Toast.LENGTH_SHORT).show()
@@ -2433,9 +2513,10 @@ fun AddPageNumScreen(onBack: () -> Unit) {
                     BrutalistButton(
                         text = "Convert another file ↺",
                         onClick = {
-                            selectedPdfUri = null
+                            tempPdfFilePath?.let { File(it).delete() }
+                            tempPdfFilePath = null
+                            selectedPdfUriString = null
                             startNumStr = "1"
-                            tempPdfFile = null
                             stage = 1
                         },
                         backgroundColor = MintColor
@@ -2593,45 +2674,54 @@ fun AddWatermarkScreen(onBack: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
 
     var stage by rememberSaveable { mutableIntStateOf(1) }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedImageUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedImageUri = selectedImageUriString?.let { Uri.parse(it) }
 
     // Config values
     var watermarkType by rememberSaveable { mutableStateOf("text") } // "text" or "image"
-    var watermarkText by remember { mutableStateOf("CONFIDENTIAL") }
-    var watermarkImageUri by remember { mutableStateOf<Uri?>(null) }
+    var watermarkText by rememberSaveable { mutableStateOf("CONFIDENTIAL") }
+    var watermarkImageUriString by rememberSaveable { mutableStateOf<String?>(null) }
+    val watermarkImageUri = watermarkImageUriString?.let { Uri.parse(it) }
     var position by rememberSaveable { mutableStateOf("center") } // top-left ... center ... bottom-right
     var opacity by rememberSaveable { mutableFloatStateOf(0.5f) } // 0.0 to 1.0
     var size by rememberSaveable { mutableFloatStateOf(1.0f) } // 0.1 to 3.0
     var rotation by rememberSaveable { mutableFloatStateOf(0f) } // 0 to 360
     var textColorHex by rememberSaveable { mutableStateOf("#000000") } // #000000 format
+    var isPngFormat by rememberSaveable { mutableStateOf(false) }
 
     var progressVal by remember { mutableFloatStateOf(0f) }
-    var tempResultFile by remember { mutableStateOf<File?>(null) }
+    var tempResultFilePath by rememberSaveable { mutableStateOf<String?>(null) }
 
     val watermarkImagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri ->
             if (uri != null) {
-                watermarkImageUri = uri
+                watermarkImageUriString = uri.toString()
             }
         }
     )
 
     val imageSaver = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("image/jpeg"),
+        contract = ActivityResultContracts.CreateDocument(if (isPngFormat) "image/png" else "image/jpeg"),
         onResult = { uri ->
-            if (uri != null && tempResultFile != null) {
-                coroutineScope.launch(Dispatchers.IO) {
-                    try {
-                        context.contentResolver.openOutputStream(uri)?.use { out ->
-                            tempResultFile!!.inputStream().copyTo(out)
-                        }
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Watermarked image saved successfully!", Toast.LENGTH_SHORT).show()
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+            val path = tempResultFilePath
+            if (uri != null && path != null) {
+                val file = File(path)
+                if (file.exists()) {
+                    coroutineScope.launch(Dispatchers.IO) {
+                        try {
+                            context.contentResolver.openOutputStream(uri)?.use { out ->
+                                file.inputStream().use { input ->
+                                    input.copyTo(out)
+                                }
+                            }
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Watermarked image saved successfully!", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Error saving: ${e.message}", Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }
@@ -2654,7 +2744,8 @@ fun AddWatermarkScreen(onBack: () -> Unit) {
                     badgeColor = MintColor,
                     onCancelledMessage = "Please select an image file.",
                     onFileSelected = { uri ->
-                        selectedImageUri = uri
+                        selectedImageUriString = uri.toString()
+                        isPngFormat = ImageUtils.isPngImage(context, uri)
                         stage = 2
                     }
                 )
@@ -2698,17 +2789,26 @@ fun AddWatermarkScreen(onBack: () -> Unit) {
                     size = size,
                     rotation = rotation,
                     onApply = {
+                        val currentUri = selectedImageUri
+                        if (currentUri == null) {
+                            Toast.makeText(context, "Please select an image first.", Toast.LENGTH_SHORT).show()
+                            stage = 1
+                            return@WatermarkReviewStage
+                        }
                         stage = 4
                         progressVal = 0.5f
                         coroutineScope.launch(Dispatchers.IO) {
                             try {
-                                val tempFile = File.createTempFile("watermarked_", ".jpg", context.cacheDir)
-                                tempResultFile = tempFile
+                                val isPng = ImageUtils.isPngImage(context, currentUri)
+                                isPngFormat = isPng
+                                val ext = if (isPng) ".png" else ".jpg"
+                                val tempFile = File.createTempFile("watermarked_", ext, context.cacheDir)
+                                tempResultFilePath = tempFile.absolutePath
 
                                 FileOutputStream(tempFile).use { fos ->
                                     ImageUtils.addWatermark(
                                         context = context,
-                                        baseImageUri = selectedImageUri!!,
+                                        baseImageUri = currentUri,
                                         watermarkType = watermarkType,
                                         watermarkText = watermarkText,
                                         watermarkImageUri = watermarkImageUri,
@@ -2740,12 +2840,16 @@ fun AddWatermarkScreen(onBack: () -> Unit) {
             }
             5 -> {
                 WatermarkSuccessStage(
-                    onDownload = { imageSaver.launch("watermarked_image.jpg") },
+                    onDownload = {
+                        val filename = if (isPngFormat) "watermarked_image.png" else "watermarked_image.jpg"
+                        imageSaver.launch(filename)
+                    },
                     onReset = {
-                        tempResultFile?.delete()
-                        selectedImageUri = null
-                        watermarkImageUri = null
-                        tempResultFile = null
+                        tempResultFilePath?.let { File(it).delete() }
+                        tempResultFilePath = null
+                        selectedImageUriString = null
+                        watermarkImageUriString = null
+                        isPngFormat = false
                         stage = 1
                     }
                 )

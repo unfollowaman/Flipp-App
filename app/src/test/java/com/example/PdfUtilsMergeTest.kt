@@ -130,4 +130,45 @@ class PdfUtilsMergeTest {
             )
         }
     }
+
+    @Test
+    fun testMergePdfs_noPagesAdded_throwsIllegalArgumentException() {
+        val context = RuntimeEnvironment.getApplication()
+        val outputStream = ByteArrayOutputStream()
+
+        val exception = assertThrows(IllegalArgumentException::class.java) {
+            PdfUtils.mergePdfs(
+                context = context,
+                pdfUris = emptyList(),
+                outputStream = outputStream,
+                onProgress = { _, _ -> }
+            )
+        }
+        assertEquals("No readable pages found to merge.", exception.message)
+    }
+
+    @Test
+    fun testMergePdfs_survivesConfigurationState_tempPdfFileSaved() {
+        val context = RuntimeEnvironment.getApplication()
+        val pdf1 = createPdfWithText(listOf("Page 1"))
+        val uri1 = Uri.fromFile(pdf1)
+
+        val tempOutputFile = File.createTempFile("test_merge_output_", ".pdf", context.cacheDir)
+        tempOutputFile.deleteOnExit()
+
+        FileOutputStream(tempOutputFile).use { fos ->
+            PdfUtils.mergePdfs(
+                context = context,
+                pdfUris = listOf(uri1),
+                outputStream = fos,
+                onProgress = { _, _ -> }
+            )
+        }
+
+        assertTrue(tempOutputFile.exists())
+        assertTrue(tempOutputFile.length() > 0)
+        val reader = PdfReader(tempOutputFile.absolutePath)
+        assertEquals(1, reader.numberOfPages)
+        reader.close()
+    }
 }

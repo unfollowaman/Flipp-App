@@ -73,4 +73,60 @@ class PdfUtilsProtectTest {
                 e.message?.contains("spongycastle") == true || e.message?.contains("ASN1") == true)
         }
     }
+
+    @Test
+    fun testProtectPdf_emptyPassword_throwsIllegalArgumentException() {
+        val context = RuntimeEnvironment.getApplication()
+        val inputFile = createDummyPdf()
+        val inputUri = Uri.fromFile(inputFile)
+
+        val outputFile = File.createTempFile("protected_output_empty", ".pdf")
+        outputFile.deleteOnExit()
+
+        val exception = assertThrows(IllegalArgumentException::class.java) {
+            FileOutputStream(outputFile).use { fos ->
+                PdfUtils.protectPdf(
+                    context = context,
+                    pdfUri = inputUri,
+                    password = "",
+                    outputStream = fos
+                )
+            }
+        }
+        assertEquals("Password cannot be empty.", exception.message)
+    }
+
+    @Test
+    fun testProtectPdf_utf8PasswordEncoding_handlesNonAscii() {
+        val context = RuntimeEnvironment.getApplication()
+        val inputFile = createDummyPdf()
+        val inputUri = Uri.fromFile(inputFile)
+
+        val outputFile = File.createTempFile("protected_output_utf8", ".pdf")
+        outputFile.deleteOnExit()
+
+        val utf8Password = "P@sswørd-नमस्ते-123"
+
+        try {
+            FileOutputStream(outputFile).use { fos ->
+                PdfUtils.protectPdf(
+                    context = context,
+                    pdfUri = inputUri,
+                    password = utf8Password,
+                    outputStream = fos
+                )
+            }
+
+            assertTrue(outputFile.length() > 0)
+
+            // Open with exact UTF-8 bytes
+            val readerWithPassword = PdfReader(outputFile.absolutePath, utf8Password.toByteArray(Charsets.UTF_8))
+            assertNotNull(readerWithPassword)
+            assertTrue(readerWithPassword.isEncrypted)
+            readerWithPassword.close()
+        } catch (e: NoClassDefFoundError) {
+            assertTrue("Expected NoClassDefFoundError related to spongycastle",
+                e.message?.contains("spongycastle") == true || e.message?.contains("ASN1") == true)
+        }
+    }
 }

@@ -18,8 +18,12 @@ import com.itextpdf.text.pdf.PdfReader
 import com.itextpdf.text.pdf.PdfStamper
 import com.itextpdf.text.pdf.PdfWriter
 import com.itextpdf.text.pdf.parser.PdfTextExtractor
+import com.itextpdf.text.exceptions.BadPasswordException
+import java.io.File
+import java.io.FileNotFoundException
 import java.io.InputStream
 import java.io.OutputStream
+import java.security.SecureRandom
 import java.util.zip.Deflater
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -131,38 +135,56 @@ object PdfUtils {
         val doc = Document(docSize, 36f, 36f, 36f, 36f)
         val writer = PdfWriter.getInstance(doc, bufferedOut)
         
-        doc.open()
-        
-        for ((index, uri) in imageUris.withIndex()) {
-            val bytes = readBytesFromUri(context, uri) ?: continue
-            val image = Image.getInstance(bytes)
+        var pagesAdded = 0
+        try {
+            doc.open()
+            
+            for ((index, uri) in imageUris.withIndex()) {
+                val bytes = readBytesFromUri(context, uri)
+                if (bytes == null || bytes.isEmpty()) {
+                    continue
+                }
+                val image = try {
+                    Image.getInstance(bytes)
+                } catch (e: Exception) {
+                    AppLogger.e("PdfUtils", "Skipping invalid image format at URI: $uri", e)
+                    continue
+                }
 
-            if (isAuto) {
-                // Adjust page size dynamically to accommodate the image dimensions
-                val rect = Rectangle(image.width, image.height)
-                doc.setPageSize(rect)
-                doc.newPage()
-                image.setAbsolutePosition(0f, 0f)
-                doc.add(image)
-            } else {
-                // Scale image to fit within A4 or Letter page margins
-                doc.newPage()
-                val targetWidth = doc.pageSize.width - doc.leftMargin() - doc.rightMargin()
-                val targetHeight = doc.pageSize.height - doc.topMargin() - doc.bottomMargin()
-                
-                image.scaleToFit(targetWidth, targetHeight)
+                if (isAuto) {
+                    // Adjust page size dynamically to accommodate the image dimensions
+                    val rect = Rectangle(image.width, image.height)
+                    doc.setPageSize(rect)
+                    doc.newPage()
+                    image.setAbsolutePosition(0f, 0f)
+                    doc.add(image)
+                } else {
+                    // Scale image to fit within A4 or Letter page margins
+                    doc.newPage()
+                    val targetWidth = doc.pageSize.width - doc.leftMargin() - doc.rightMargin()
+                    val targetHeight = doc.pageSize.height - doc.topMargin() - doc.bottomMargin()
+                    
+                    image.scaleToFit(targetWidth, targetHeight)
 
-                // Center image
-                val x = (doc.pageSize.width - image.scaledWidth) / 2f
-                val y = (doc.pageSize.height - image.scaledHeight) / 2f
-                image.setAbsolutePosition(x, y)
-                doc.add(image)
+                    // Center image
+                    val x = (doc.pageSize.width - image.scaledWidth) / 2f
+                    val y = (doc.pageSize.height - image.scaledHeight) / 2f
+                    image.setAbsolutePosition(x, y)
+                    doc.add(image)
+                }
+                pagesAdded++
+                onProgress(index + 1, total)
             }
-            onProgress(index + 1, total)
+            if (pagesAdded == 0) {
+                throw IllegalArgumentException("No valid images could be converted to PDF.")
+            }
+        } finally {
+            if (doc.isOpen && pagesAdded > 0) {
+                doc.close()
+            }
+            writer.close()
+            bufferedOut.flush()
         }
-        
-        doc.close()
-        writer.close()
     }
 
     /**
@@ -178,27 +200,50 @@ object PdfUtils {
         val bufferedOut = outputStream.buffered()
         val doc = Document()
         val copy = PdfCopy(doc, bufferedOut)
-        doc.open()
-        
-        val total = pdfUris.size
-        
-        for ((index, uri) in pdfUris.withIndex()) {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: continue
-            val reader = PdfReader(inputStream)
-            val numPages = reader.numberOfPages
+        var pagesAdded = 0
+        try {
+            doc.open()
+            val total = pdfUris.size
 
-            for (p in 1..numPages) {
-                copy.addPage(copy.getImportedPage(reader, p))
+            for ((index, uri) in pdfUris.withIndex()) {
+                val inputStream = context.contentResolver.openInputStream(uri) ?: continue
+                try {
+                    val reader = PdfReader(inputStream)
+                    try {
+                        val numPages = reader.numberOfPages
+                        for (p in 1..numPages) {
+                            copy.addPage(copy.getImportedPage(reader, p))
+                            pagesAdded++
+                        }
+                        // Optimize memory: Free reader internal objects in PdfCopy after importing pages to allow early GC
+                        copy.freeReader(reader)
+                    } finally {
+                        reader.close()
+                    }
+                } finally {
+                    inputStream.close()
+                }
+                onProgress(index + 1, total)
             }
-            // Optimize memory: Free reader internal objects in PdfCopy after importing pages to allow early GC
-            copy.freeReader(reader)
-            reader.close()
-            inputStream.close()
-            onProgress(index + 1, total)
+
+            if (pagesAdded == 0) {
+                throw IllegalArgumentException("No readable pages found to merge.")
+            }
+        } finally {
+            if (doc.isOpen && pagesAdded > 0) {
+                try {
+                    doc.close()
+                } catch (e: Exception) {
+                    AppLogger.e("PdfUtils", "Error closing Document during merge", e)
+                }
+            }
+            try {
+                copy.close()
+            } catch (e: Exception) {
+                AppLogger.e("PdfUtils", "Error closing PdfCopy during merge", e)
+            }
+            bufferedOut.flush()
         }
-        
-        doc.close()
-        copy.close()
     }
 
     /**
@@ -211,62 +256,111 @@ object PdfUtils {
         endPage: Int,
         outputStream: OutputStream
     ) {
-        val inputStream = context.contentResolver.openInputStream(pdfUri) ?: throw Exception("Failed to open input stream")
-        val reader = PdfReader(inputStream)
-        val numPages = reader.numberOfPages
+        val inputStream = context.contentResolver.openInputStream(pdfUri)
+            ?: throw FileNotFoundException("Failed to open file descriptor: $pdfUri")
+        try {
+            val reader = PdfReader(inputStream)
+            try {
+                val numPages = reader.numberOfPages
 
-        if (startPage < 1 || endPage > numPages || startPage > endPage) {
-            reader.close()
+                if (startPage < 1 || endPage > numPages || startPage > endPage) {
+                    throw IllegalArgumentException("No valid pages in range.")
+                }
+
+                // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF split
+                val bufferedOut = outputStream.buffered()
+                val doc = Document()
+                val copy = PdfCopy(doc, bufferedOut)
+                try {
+                    doc.open()
+                    for (p in startPage..endPage) {
+                        copy.addPage(copy.getImportedPage(reader, p))
+                    }
+                    // Optimize memory: Free reader internal objects in PdfCopy after importing pages
+                    copy.freeReader(reader)
+                } finally {
+                    if (doc.isOpen) {
+                        try {
+                            doc.close()
+                        } catch (e: Exception) {
+                            AppLogger.e("PdfUtils", "Error closing Document during split", e)
+                        }
+                    }
+                    try {
+                        copy.close()
+                    } catch (e: Exception) {
+                        AppLogger.e("PdfUtils", "Error closing PdfCopy during split", e)
+                    }
+                    bufferedOut.flush()
+                }
+            } finally {
+                reader.close()
+            }
+        } finally {
             inputStream.close()
-            throw IllegalArgumentException("No valid pages in range.")
         }
-
-        // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF split
-        val bufferedOut = outputStream.buffered()
-        val doc = Document()
-        val copy = PdfCopy(doc, bufferedOut)
-        doc.open()
-
-        for (p in startPage..endPage) {
-            copy.addPage(copy.getImportedPage(reader, p))
-        }
-
-        doc.close()
-        copy.close()
-        reader.close()
-        inputStream.close()
     }
 
     /**
-     * Encrypts a PDF file using AES-256 password encryption.
+     * Encrypts a PDF file using AES-256 password encryption with standard UTF-8 encoding
+     * and a distinct cryptographically secure owner password.
      */
     fun protectPdf(
         context: Context,
         pdfUri: Uri,
-        password: java.lang.String,
+        password: CharSequence,
         outputStream: OutputStream
     ) {
-        val inputStream = context.contentResolver.openInputStream(pdfUri) ?: throw Exception("Failed to open input stream for PDF")
-        inputStream.use { stream ->
-            val reader = PdfReader(stream)
+        val pwd = password.toString()
+        if (pwd.isEmpty()) {
+            throw IllegalArgumentException("Password cannot be empty.")
+        }
 
-            // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF encryption
-            val bufferedOut = outputStream.buffered()
-            val stamper = PdfStamper(reader, bufferedOut)
-            stamper.setEncryption(
-                password.bytes,
-                password.bytes,
-                PdfWriter.ALLOW_PRINTING or PdfWriter.ALLOW_COPY,
-                PdfWriter.ENCRYPTION_AES_256
-            )
-
-            stamper.close()
-            reader.close()
+        val inputStream = context.contentResolver.openInputStream(pdfUri)
+            ?: throw FileNotFoundException("Failed to open file descriptor: $pdfUri")
+        try {
+            val reader = try {
+                PdfReader(inputStream)
+            } catch (e: BadPasswordException) {
+                throw IllegalArgumentException("The selected PDF is already password-protected.", e)
+            }
+            try {
+                // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF encryption
+                val bufferedOut = outputStream.buffered()
+                val stamper = PdfStamper(reader, bufferedOut)
+                try {
+                    val userPasswordBytes = pwd.toByteArray(Charsets.UTF_8)
+                    val ownerPasswordBytes = ByteArray(32).apply {
+                        SecureRandom().nextBytes(this)
+                    }
+                    stamper.setEncryption(
+                        userPasswordBytes,
+                        ownerPasswordBytes,
+                        PdfWriter.ALLOW_PRINTING or PdfWriter.ALLOW_COPY,
+                        PdfWriter.ENCRYPTION_AES_256
+                    )
+                } finally {
+                    try {
+                        stamper.close()
+                    } catch (e: Exception) {
+                        AppLogger.e("PdfUtils", "Error closing PdfStamper during protectPdf", e)
+                    }
+                    bufferedOut.flush()
+                }
+            } finally {
+                try {
+                    reader.close()
+                } catch (ignored: Exception) {}
+            }
+        } finally {
+            inputStream.close()
         }
     }
 
     /**
-     * Stitche page numbers onto an existing PDF with coordinates and custom font.
+     * Stitches page numbers onto an existing PDF with coordinates and custom font.
+     * Uses getCropBox/getPageSize box coordinates (left, right, bottom, top) to ensure correct
+     * placement on PDFs with non-zero origins and custom crop boxes.
      */
     fun addPageNumbers(
         context: Context,
@@ -275,61 +369,135 @@ object PdfUtils {
         startNumber: Int,
         outputStream: OutputStream
     ) {
-        context.contentResolver.openInputStream(pdfUri)?.use { inputStream ->
-            val reader = PdfReader(inputStream)
-            val totalPages = reader.numberOfPages
-            
-            // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF stamping
-            val bufferedOut = outputStream.buffered()
-            val stamper = PdfStamper(reader, bufferedOut)
-            val baseFont = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.WINANSI, BaseFont.EMBEDDED)
-            
-            val fontSize = 11f
-            val margin = 36f // Margin from edges
-            
-            // Optimize: Evaluate position flags and alignment ONCE outside the page loop
-            // to eliminate redundant string search pattern matching on every iteration.
-            val isLeft = position.contains("left")
-            val isCenter = position.contains("center")
-            val isTop = position.contains("top")
-
-            val alignment = when {
-                isLeft -> Element.ALIGN_LEFT
-                isCenter -> Element.ALIGN_CENTER
-                else -> Element.ALIGN_RIGHT
+        val inputStream = context.contentResolver.openInputStream(pdfUri)
+            ?: throw FileNotFoundException("Failed to open file descriptor: $pdfUri")
+        try {
+            val reader = try {
+                PdfReader(inputStream)
+            } catch (e: BadPasswordException) {
+                throw IllegalArgumentException("The selected PDF is password-protected.", e)
             }
-
-            for (i in 1..totalPages) {
-                val overContent = stamper.getOverContent(i)
-                val pageSize = reader.getPageSize(i)
-                val width = pageSize.width
-                val height = pageSize.height
-
-                // Current page number designation
-                val currentNumber = startNumber + (i - 1)
-                val labelText = currentNumber.toString()
-
-                val x = when {
-                    isLeft -> margin
-                    isCenter -> width / 2f
-                    else -> width - margin
+            try {
+                val totalPages = reader.numberOfPages
+                if (totalPages == 0) {
+                    throw IllegalArgumentException("PDF contains no pages.")
                 }
 
-                val y = if (isTop) height - margin else margin
+                // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF stamping
+                val bufferedOut = outputStream.buffered()
+                val stamper = PdfStamper(reader, bufferedOut)
+                try {
+                    val baseFont = BaseFont.createFont(BaseFont.HELVETICA_BOLD, BaseFont.WINANSI, BaseFont.EMBEDDED)
+                    val fontSize = 11f
+                    val margin = 36f // Margin from edges
 
-                overContent.beginText()
-                overContent.setFontAndSize(baseFont, fontSize)
-                overContent.showTextAligned(alignment, labelText, x, y, 0f)
-                overContent.endText()
+                    // Optimize: Evaluate position flags and alignment ONCE outside the page loop
+                    val isLeft = position.contains("left")
+                    val isCenter = position.contains("center")
+                    val isTop = position.contains("top")
+
+                    val alignment = when {
+                        isLeft -> Element.ALIGN_LEFT
+                        isCenter -> Element.ALIGN_CENTER
+                        else -> Element.ALIGN_RIGHT
+                    }
+
+                    for (i in 1..totalPages) {
+                        val overContent = stamper.getOverContent(i)
+                        val box = reader.getCropBox(i) ?: reader.getPageSize(i)
+                        val left = box.left
+                        val right = box.right
+                        val bottom = box.bottom
+                        val top = box.top
+
+                        // Current page number designation
+                        val currentNumber = startNumber + (i - 1)
+                        val labelText = currentNumber.toString()
+
+                        val x = when {
+                            isLeft -> left + margin
+                            isCenter -> (left + right) / 2f
+                            else -> right - margin
+                        }
+
+                        val y = if (isTop) top - margin else bottom + margin
+
+                        overContent.beginText()
+                        overContent.setFontAndSize(baseFont, fontSize)
+                        overContent.showTextAligned(alignment, labelText, x, y, 0f)
+                        overContent.endText()
+                    }
+                } finally {
+                    try {
+                        stamper.close()
+                    } catch (e: Exception) {
+                        AppLogger.e("PdfUtils", "Error closing PdfStamper in addPageNumbers", e)
+                    }
+                    bufferedOut.flush()
+                }
+            } finally {
+                try {
+                    reader.close()
+                } catch (ignored: Exception) {}
             }
-            
-            stamper.close()
-            reader.close()
-        } ?: throw Exception("Failed to open file descriptor")
+        } finally {
+            inputStream.close()
+        }
     }
 
     /**
-     * Converts text to a PDF file.
+     * Obtains a font supporting Unicode (including Latin and Devanagari).
+     * Attempts bundled asset font first, then system fallback fonts, and finally Helvetica.
+     */
+    fun getUnicodeFont(context: Context, fontSize: Float): Font {
+        // 1. Try bundled Poppins font from assets (covers Latin and Devanagari)
+        try {
+            val assetPath = "fonts/Poppins-Regular.ttf"
+            val fontBytes = context.assets.open(assetPath).use { it.readBytes() }
+            if (fontBytes.isNotEmpty()) {
+                val baseFont = BaseFont.createFont(
+                    "Poppins-Regular.ttf",
+                    BaseFont.IDENTITY_H,
+                    BaseFont.EMBEDDED,
+                    true,
+                    fontBytes,
+                    null
+                )
+                return Font(baseFont, fontSize)
+            }
+        } catch (e: Exception) {
+            AppLogger.d("PdfUtils", "Could not load bundled Poppins font from assets: ${e.message}")
+        }
+
+        // 2. Try Android system Noto Sans Devanagari or Noto Sans fallback
+        val systemFonts = listOf(
+            "/system/fonts/NotoSansDevanagari-Regular.ttf",
+            "/system/fonts/NotoSans-Regular.ttf",
+            "/system/fonts/DroidSansFallback.ttf"
+        )
+        for (fontPath in systemFonts) {
+            val file = File(fontPath)
+            if (file.exists() && file.canRead()) {
+                try {
+                    val baseFont = BaseFont.createFont(
+                        fontPath,
+                        BaseFont.IDENTITY_H,
+                        BaseFont.EMBEDDED
+                    )
+                    return Font(baseFont, fontSize)
+                } catch (e: Exception) {
+                    AppLogger.d("PdfUtils", "Could not load system font $fontPath: ${e.message}")
+                }
+            }
+        }
+
+        // 3. Fallback to standard Helvetica
+        val baseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED)
+        return Font(baseFont, fontSize)
+    }
+
+    /**
+     * Converts text to a PDF file with full Unicode support (including Devanagari/Hindi).
      */
     fun textToPdf(
         context: Context,
@@ -351,25 +519,36 @@ object PdfUtils {
         val doc = Document(docSize, margin, margin, margin, margin)
         val writer = PdfWriter.getInstance(doc, bufferedOut)
 
-        doc.open()
+        try {
+            doc.open()
 
-        val baseFont = BaseFont.createFont(BaseFont.HELVETICA, BaseFont.WINANSI, BaseFont.EMBEDDED)
-        val font = Font(baseFont, fontSize)
+            val font = getUnicodeFont(context, fontSize)
+            val paragraph = Paragraph(text.ifEmpty { " " }, font)
 
-        val paragraph = Paragraph(text.ifEmpty { " " }, font)
+            when (alignment.lowercase()) {
+                "left" -> paragraph.alignment = Element.ALIGN_LEFT
+                "center" -> paragraph.alignment = Element.ALIGN_CENTER
+                "right" -> paragraph.alignment = Element.ALIGN_RIGHT
+                "justified" -> paragraph.alignment = Element.ALIGN_JUSTIFIED
+                else -> paragraph.alignment = Element.ALIGN_LEFT
+            }
 
-        when (alignment.lowercase()) {
-            "left" -> paragraph.alignment = Element.ALIGN_LEFT
-            "center" -> paragraph.alignment = Element.ALIGN_CENTER
-            "right" -> paragraph.alignment = Element.ALIGN_RIGHT
-            "justified" -> paragraph.alignment = Element.ALIGN_JUSTIFIED
-            else -> paragraph.alignment = Element.ALIGN_LEFT
+            doc.add(paragraph)
+        } finally {
+            if (doc.isOpen) {
+                try {
+                    doc.close()
+                } catch (e: Exception) {
+                    AppLogger.e("PdfUtils", "Error closing Document in textToPdf", e)
+                }
+            }
+            try {
+                writer.close()
+            } catch (e: Exception) {
+                AppLogger.e("PdfUtils", "Error closing PdfWriter in textToPdf", e)
+            }
+            bufferedOut.flush()
         }
-
-        doc.add(paragraph)
-
-        doc.close()
-        writer.close()
     }
 
 
@@ -406,12 +585,14 @@ object PdfUtils {
 
     // Optimize: Use Kotlin's `readBytes()` on InputStream with `use` block.
     // This reduces manual byte buffer copying overhead and ensures stream is safely closed.
-    private fun readBytesFromUri(context: Context, uri: Uri): ByteArray? {
+    internal fun readBytesFromUri(context: Context, uri: Uri): ByteArray? {
         return try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                inputStream.readBytes()
-            } ?: ByteArray(0)
+                val bytes = inputStream.readBytes()
+                if (bytes.isNotEmpty()) bytes else null
+            }
         } catch (e: Exception) {
+            AppLogger.e("PdfUtils", "Error reading bytes from URI", e)
             null
         }
     }
