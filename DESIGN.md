@@ -45,7 +45,7 @@ All color tokens are centralized in `app/src/main/java/com/example/ui/theme/Colo
 
 ## 3. Typography System
 
-Defined in `app/src/main/java/com/example/ui/theme/Type.kt` using standard Android `FontFamily.SansSerif`.
+Defined in `app/src/main/java/com/example/ui/theme/Type.kt` using local bundled `BricolageGrotesque` font family (`res/font/bricolage_grotesque_*.ttf`), supporting weights from Light (300) to ExtraBold/Black (800/900).
 
 | Style Token | Weight | Size | Line Height | Letter Spacing | Context of Use |
 | :--- | :--- | :--- | :--- | :--- | :--- |
