@@ -1,8 +1,11 @@
 package com.example.ui.theme
 
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.text.TextStyle
 
 private val FlippColorScheme = lightColorScheme(
     primary = BlackColor,
@@ -25,7 +28,11 @@ fun MyApplicationTheme(
 ) {
     MaterialTheme(
         colorScheme = FlippColorScheme,
-        typography = Typography,
-        content = content
-    )
+        typography = Typography
+    ) {
+        CompositionLocalProvider(
+            LocalTextStyle provides TextStyle(fontFamily = BricolageGrotesque),
+            content = content
+        )
+    }
 }
