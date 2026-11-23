@@ -222,4 +222,81 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onNodeWithText("Extract specific page range into a separate file.")
             .assertExists()
     }
+
+    @Test
+    fun optionPillRendersCorrectRoleAndSelection() {
+        composeTestRule.setContent {
+            OptionPill(
+                label = "PNG",
+                sublabel = "High quality",
+                badgeText = "Best",
+                selected = true,
+                onClick = {},
+                testTag = "pill_png"
+            )
+        }
+
+        composeTestRule.onNodeWithTag("pill_png")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            .assert(isSelected())
+        composeTestRule.onNodeWithText("PNG").assertExists()
+        composeTestRule.onNodeWithText("High quality").assertExists()
+        composeTestRule.onNodeWithText("Best").assertExists()
+    }
+
+    @Test
+    fun documentSummaryHeaderRendersFilenameAndBadges() {
+        var removed = false
+        composeTestRule.setContent {
+            DocumentSummaryHeader(
+                filename = "sample_contract.pdf",
+                pageCount = 8,
+                fileSizeString = "2.4 MB",
+                onRemoveClick = { removed = true }
+            )
+        }
+
+        composeTestRule.onNodeWithText("sample_contract.pdf").assertExists()
+        composeTestRule.onNodeWithText("8 PAGES").assertExists()
+        composeTestRule.onNodeWithText("2.4 MB").assertExists()
+        composeTestRule.onNode(hasContentDescription("Remove file")).assertExists()
+    }
+
+    @Test
+    fun resultsHeroBannerRendersTitleAndCTAs() {
+        var primaryClicked = false
+        var resetClicked = false
+        composeTestRule.setContent {
+            ResultsHeroBanner(
+                title = "✓ Conversion complete!",
+                subtitle = "Your files are ready to download.",
+                primaryButtonText = "Download All as ZIP 📦",
+                onPrimaryClick = { primaryClicked = true },
+                secondaryButtonText = "Convert another file ↺",
+                onSecondaryClick = { resetClicked = true }
+            )
+        }
+
+        composeTestRule.onNodeWithText("✓ Conversion complete!").assertExists()
+        composeTestRule.onNodeWithText("Download All as ZIP 📦").assertExists()
+        composeTestRule.onNodeWithText("Convert another file ↺").assertExists()
+    }
+
+    @Test
+    fun individualOutputCardRendersPageLabelAndActionButtons() {
+        composeTestRule.setContent {
+            IndividualOutputCard(
+                pageIndex = 0,
+                bitmap = null,
+                label = "page-001.png",
+                onSaveClick = {},
+                onShareClick = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("page-001.png").assertExists()
+        composeTestRule.onNodeWithText("Page 1").assertExists()
+        composeTestRule.onNodeWithText("Download").assertExists()
+        composeTestRule.onNode(hasContentDescription("Share page-001.png")).assertExists()
+    }
 }

@@ -19,7 +19,7 @@ import java.io.File
 import java.io.FileOutputStream
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [34])
 class PdfUtilsProtectTest {
 
     private fun createDummyPdf(): File {
