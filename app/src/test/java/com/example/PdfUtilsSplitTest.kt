@@ -17,7 +17,7 @@ import java.io.FileOutputStream
 import org.robolectric.RuntimeEnvironment
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [34])
 class PdfUtilsSplitTest {
 
     private fun createDummyPdf(): File {
