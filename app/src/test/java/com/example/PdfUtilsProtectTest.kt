@@ -19,7 +19,7 @@ import java.io.File
 import java.io.FileOutputStream
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+@Config(sdk = [34])
 class PdfUtilsProtectTest {
 
     private fun createDummyPdf(): File {
@@ -71,6 +71,25 @@ class PdfUtilsProtectTest {
             // When running JVM unit tests without SpongyCastle, itextg setEncryption throws NoClassDefFoundError for org.spongycastle
             assertTrue("Expected NoClassDefFoundError related to spongycastle",
                 e.message?.contains("spongycastle") == true || e.message?.contains("ASN1") == true)
+        }
+    }
+
+    @Test
+    fun testProtectPdf_nonExistentUri_throwsException() {
+        val context = RuntimeEnvironment.getApplication()
+        val nonExistentUri = Uri.parse("file:///nonexistent/file.pdf")
+        val outputFile = File.createTempFile("dummy_out", ".pdf")
+        outputFile.deleteOnExit()
+
+        assertThrows(Exception::class.java) {
+            FileOutputStream(outputFile).use { fos ->
+                PdfUtils.protectPdf(
+                    context = context,
+                    pdfUri = nonExistentUri,
+                    password = java.lang.String("pass"),
+                    outputStream = fos
+                )
+            }
         }
     }
 }

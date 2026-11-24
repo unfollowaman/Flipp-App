@@ -28,133 +28,138 @@ object ImageUtils {
         val options = BitmapFactory.Options()
         options.inMutable = true
 
-        val inputStream = context.contentResolver.openInputStream(baseImageUri) ?: throw Exception("Failed to open base image")
-        val baseBitmap = BitmapFactory.decodeStream(inputStream, null, options) ?: throw Exception("Failed to decode base image")
-        inputStream.close()
+        val baseBitmap = context.contentResolver.openInputStream(baseImageUri)?.use { inputStream ->
+            BitmapFactory.decodeStream(inputStream, null, options)
+        } ?: throw Exception("Failed to open or decode base image")
 
-        val canvas = Canvas(baseBitmap)
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-        paint.alpha = (opacity * 255).toInt()
-
-        val width = baseBitmap.width
-        val height = baseBitmap.height
-
-        val margin = (width * 0.05f).coerceAtLeast(20f)
-
-        var x = 0f
-        var y = 0f
-
-        if (watermarkType == "text") {
-            // Text Watermark
-            paint.color = try { android.graphics.Color.parseColor(colorStr) } catch(e: Exception) { android.graphics.Color.BLACK }
+        try {
+            val canvas = Canvas(baseBitmap)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             paint.alpha = (opacity * 255).toInt()
 
-            // Base font size depends on image width and user size slider
-            val baseTextSize = width * 0.05f
-            paint.textSize = baseTextSize * size
-            paint.typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+            val width = baseBitmap.width
+            val height = baseBitmap.height
 
-            val bounds = android.graphics.Rect()
-            paint.getTextBounds(watermarkText, 0, watermarkText.length, bounds)
-            val textWidth = paint.measureText(watermarkText)
-            val textHeight = bounds.height().toFloat()
+            val margin = (width * 0.05f).coerceAtLeast(20f)
 
-            when {
-                position.contains("left") -> x = margin
-                position.contains("center") -> x = (width - textWidth) / 2f
-                position.contains("right") -> x = width - textWidth - margin
-            }
+            var x = 0f
+            var y = 0f
 
-            when {
-                position.contains("top") -> y = margin + textHeight
-                position.contains("bottom") -> y = height - margin
-                else -> y = (height + textHeight) / 2f // exact center y
-            }
+            if (watermarkType == "text") {
+                // Text Watermark
+                paint.color = try { android.graphics.Color.parseColor(colorStr) } catch(e: Exception) { android.graphics.Color.BLACK }
+                paint.alpha = (opacity * 255).toInt()
 
-            canvas.save()
-            // Rotate around text center
-            canvas.rotate(rotation, x + textWidth / 2f, y - textHeight / 2f)
-            canvas.drawText(watermarkText, x, y, paint)
-            canvas.restore()
+                // Base font size depends on image width and user size slider
+                val baseTextSize = width * 0.05f
+                paint.textSize = baseTextSize * size
+                paint.typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
 
-        } else if (watermarkType == "image" && watermarkImageUri != null) {
-            // Image Watermark
-            val targetWmWidth = width * 0.2f * size
+                val bounds = android.graphics.Rect()
+                paint.getTextBounds(watermarkText, 0, watermarkText.length, bounds)
+                val textWidth = paint.measureText(watermarkText)
+                val textHeight = bounds.height().toFloat()
 
-            // Optimize memory: Decode image bounds first to compute target inSampleSize before allocating full bitmap in memory.
-            val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
-                BitmapFactory.decodeStream(stream, null, boundsOptions)
-            } ?: throw Exception("Failed to open watermark image")
+                when {
+                    position.contains("left") -> x = margin
+                    position.contains("center") -> x = (width - textWidth) / 2f
+                    position.contains("right") -> x = width - textWidth - margin
+                }
 
-            val origWidth = boundsOptions.outWidth
-            val origHeight = boundsOptions.outHeight
-            if (origWidth <= 0 || origHeight <= 0) throw Exception("Failed to decode watermark image dimensions")
+                when {
+                    position.contains("top") -> y = margin + textHeight
+                    position.contains("bottom") -> y = height - margin
+                    else -> y = (height + textHeight) / 2f // exact center y
+                }
 
-            val scale = targetWmWidth / origWidth
-            val targetWmHeight = origHeight * scale
+                canvas.save()
+                // Rotate around text center
+                canvas.rotate(rotation, x + textWidth / 2f, y - textHeight / 2f)
+                canvas.drawText(watermarkText, x, y, paint)
+                canvas.restore()
 
-            // Downsample high-res watermark images on decode to avoid massive heap allocations (saving up to ~95% RAM for large watermark images)
-            var inSampleSize = 1
-            if (origWidth > targetWmWidth && origHeight > targetWmHeight) {
-                val halfWidth = origWidth / 2
-                val halfHeight = origHeight / 2
-                while ((halfWidth / inSampleSize) >= targetWmWidth && (halfHeight / inSampleSize) >= targetWmHeight) {
-                    inSampleSize *= 2
+            } else if (watermarkType == "image" && watermarkImageUri != null) {
+                // Image Watermark
+                val targetWmWidth = width * 0.2f * size
+
+                // Optimize memory: Decode image bounds first to compute target inSampleSize before allocating full bitmap in memory.
+                val boundsOptions = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, boundsOptions)
+                } ?: throw Exception("Failed to open watermark image")
+
+                val origWidth = boundsOptions.outWidth
+                val origHeight = boundsOptions.outHeight
+                if (origWidth <= 0 || origHeight <= 0) throw Exception("Failed to decode watermark image dimensions")
+
+                val scale = targetWmWidth / origWidth
+                val targetWmHeight = origHeight * scale
+
+                // Downsample high-res watermark images on decode to avoid massive heap allocations (saving up to ~95% RAM for large watermark images)
+                var inSampleSize = 1
+                if (origWidth > targetWmWidth && origHeight > targetWmHeight) {
+                    val halfWidth = origWidth / 2
+                    val halfHeight = origHeight / 2
+                    while ((halfWidth / inSampleSize) >= targetWmWidth && (halfHeight / inSampleSize) >= targetWmHeight) {
+                        inSampleSize *= 2
+                    }
+                }
+
+                val decodeOptions = BitmapFactory.Options().apply {
+                    this.inSampleSize = inSampleSize
+                }
+
+                val wmBitmap = context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream, null, decodeOptions)
+                } ?: throw Exception("Failed to decode watermark image")
+
+                try {
+                    when {
+                        position.contains("left") -> x = margin
+                        position.contains("center") -> x = (width - targetWmWidth) / 2f
+                        position.contains("right") -> x = width - targetWmWidth - margin
+                    }
+
+                    when {
+                        position.contains("top") -> y = margin
+                        position.contains("bottom") -> y = height - targetWmHeight - margin
+                        else -> y = (height - targetWmHeight) / 2f
+                    }
+
+                    // Optimize: Instead of allocating an intermediate Bitmap via Bitmap.createScaledBitmap (which creates a full secondary ARGB bitmap in RAM),
+                    // use Matrix scaling directly on Canvas.drawBitmap to eliminate extra bitmap allocations and reduce GC overhead.
+                    val scaleX = targetWmWidth / wmBitmap.width.toFloat()
+                    val scaleY = targetWmHeight / wmBitmap.height.toFloat()
+
+                    val matrix = Matrix()
+                    // Scale original bitmap directly to target dimensions
+                    matrix.postScale(scaleX, scaleY)
+                    // Translate to target position
+                    matrix.postTranslate(x, y)
+                    // Rotate around the target watermark center
+                    matrix.postRotate(rotation, x + targetWmWidth / 2f, y + targetWmHeight / 2f)
+
+                    // Draw bitmap directly with Matrix transformation
+                    canvas.drawBitmap(wmBitmap, matrix, paint)
+                } finally {
+                    wmBitmap.recycle()
                 }
             }
 
-            val decodeOptions = BitmapFactory.Options().apply {
-                this.inSampleSize = inSampleSize
+            // Save to output stream
+            // use original format or JPEG as default
+            val compressFormat = if (baseImageUri.toString().lowercase().endsWith("png")) {
+                Bitmap.CompressFormat.PNG
+            } else {
+                Bitmap.CompressFormat.JPEG
             }
 
-            val wmBitmap = context.contentResolver.openInputStream(watermarkImageUri)?.use { stream ->
-                BitmapFactory.decodeStream(stream, null, decodeOptions)
-            } ?: throw Exception("Failed to decode watermark image")
-
-            when {
-                position.contains("left") -> x = margin
-                position.contains("center") -> x = (width - targetWmWidth) / 2f
-                position.contains("right") -> x = width - targetWmWidth - margin
-            }
-
-            when {
-                position.contains("top") -> y = margin
-                position.contains("bottom") -> y = height - targetWmHeight - margin
-                else -> y = (height - targetWmHeight) / 2f
-            }
-
-            // Optimize: Instead of allocating an intermediate Bitmap via Bitmap.createScaledBitmap (which creates a full secondary ARGB bitmap in RAM),
-            // use Matrix scaling directly on Canvas.drawBitmap to eliminate extra bitmap allocations and reduce GC overhead.
-            val scaleX = targetWmWidth / wmBitmap.width.toFloat()
-            val scaleY = targetWmHeight / wmBitmap.height.toFloat()
-
-            val matrix = Matrix()
-            // Scale original bitmap directly to target dimensions
-            matrix.postScale(scaleX, scaleY)
-            // Translate to target position
-            matrix.postTranslate(x, y)
-            // Rotate around the target watermark center
-            matrix.postRotate(rotation, x + targetWmWidth / 2f, y + targetWmHeight / 2f)
-
-            // Draw bitmap directly with Matrix transformation
-            canvas.drawBitmap(wmBitmap, matrix, paint)
-
-            wmBitmap.recycle()
+            // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during image encoding
+            val bufferedOut = outputStream.buffered()
+            baseBitmap.compress(compressFormat, 95, bufferedOut)
+            bufferedOut.flush()
+        } finally {
+            baseBitmap.recycle()
         }
-
-        // Save to output stream
-        // use original format or JPEG as default
-        val compressFormat = if (baseImageUri.toString().lowercase().endsWith("png")) {
-            Bitmap.CompressFormat.PNG
-        } else {
-            Bitmap.CompressFormat.JPEG
-        }
-
-        // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during image encoding
-        val bufferedOut = outputStream.buffered()
-        baseBitmap.compress(compressFormat, 95, bufferedOut)
-        bufferedOut.flush()
-        baseBitmap.recycle()
     }
 }

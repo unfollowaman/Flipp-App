@@ -22,10 +22,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,6 +53,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.text.style.TextOverflow
 import com.example.ui.theme.*
 import com.example.ui.theme.CreamColor
 import com.example.ui.theme.WhiteColor
@@ -78,7 +96,7 @@ fun BrutalistShadowBox(
             label = "offsetAnimation"
         )
 
-        Box(modifier = modifier) {
+        Box(modifier = modifier, propagateMinConstraints = true) {
             // Shadow
             Box(
                 modifier = Modifier
@@ -107,7 +125,7 @@ fun BrutalistShadowBox(
             )
         }
     } else {
-        Box(modifier = modifier) {
+        Box(modifier = modifier, propagateMinConstraints = true) {
             // Shadow
             Box(
                 modifier = Modifier
@@ -147,8 +165,8 @@ fun BrutalistButton(
             fontWeight = FontWeight.Bold,
             color = BlackColor,
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 28.dp),
+                .padding(vertical = 14.dp, horizontal = 24.dp)
+                .align(Alignment.Center),
             textAlign = TextAlign.Center
         )
     }
@@ -490,6 +508,902 @@ fun StageProgressBar(
                         .fillMaxHeight()
                         .background(MintColor, RoundedCornerShape(99.dp))
                 )
+            }
+        }
+    }
+}
+
+// ---------------------- REUSABLE FEATURE-PAGE ARCHITECTURE ----------------------
+
+/**
+ * Universal Neobrutalist Scaffold for all Flipp feature screens.
+ * Implements clean white primary background with controlled color accents,
+ * WCAG 2.1 AA accessible navigation, compact tool identity, and subtle privacy reassurance.
+ */
+@Composable
+fun FeaturePageScaffold(
+    title: String,
+    desc: String,
+    badgeLabel: String,
+    onBack: () -> Unit,
+    badgeColor: Color = YellowColor,
+    privacyReassurance: String = "100% on-device • Never leaves your phone",
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(WhiteColor)
+    ) {
+        // App Bar
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .background(WhiteColor)
+                .bottomBorder(2.dp, BlackColor)
+                .padding(horizontal = 16.dp)
+        ) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(WhiteColor, RoundedCornerShape(8.dp))
+                    .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
+                    .testTag("back_button")
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Navigate back",
+                    tint = BlackColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Text(
+                text = title,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = BlackColor,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            ToolBadge(text = badgeLabel, backgroundColor = badgeColor)
+        }
+
+        // Scrollable content body
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Compact Tool Identity & Header Card
+            BrutalistShadowBox(
+                modifier = Modifier.fillMaxWidth(),
+                backgroundColor = WhiteColor,
+                cornerRadius = 14.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = title,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = BlackColor
+                        )
+                        ToolBadge(text = badgeLabel, backgroundColor = badgeColor)
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = desc,
+                        fontSize = 13.sp,
+                        color = Color(0xFF444444),
+                        lineHeight = 18.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    // Subtle Privacy Reassurance Pill
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .background(CreamColor, RoundedCornerShape(50))
+                            .border(1.dp, BlackColor, RoundedCornerShape(50))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Privacy guaranteed",
+                            tint = BlackColor,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = privacyReassurance,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = BlackColor
+                        )
+                    }
+                }
+            }
+
+            content()
+        }
+    }
+}
+
+/**
+ * State 2 (File Selected): Represents the chosen document with metadata and actions.
+ */
+@Composable
+fun SelectedFileCard(
+    fileName: String,
+    modifier: Modifier = Modifier,
+    fileSizeStr: String? = null,
+    pageCount: Int? = null,
+    fileTypeBadge: String = "PDF",
+    badgeColor: Color = YellowColor,
+    previewBitmap: Bitmap? = null,
+    onChangeFile: (() -> Unit)? = null
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = CreamColor,
+        cornerRadius = 12.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (previewBitmap != null) {
+                Image(
+                    bitmap = previewBitmap.asImageBitmap(),
+                    contentDescription = "Document thumbnail preview",
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(WhiteColor, RoundedCornerShape(6.dp))
+                        .border(1.5.dp, BlackColor, RoundedCornerShape(6.dp))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .background(WhiteColor, RoundedCornerShape(8.dp))
+                        .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = fileTypeBadge,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black,
+                        color = BlackColor
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = fileName,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BlackColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    ToolBadge(text = fileTypeBadge, backgroundColor = badgeColor)
+                    if (pageCount != null && pageCount > 0) {
+                        Text(
+                            text = "$pageCount pages",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF555555)
+                        )
+                    }
+                    if (fileSizeStr != null) {
+                        Text(
+                            text = "• $fileSizeStr",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF666666)
+                        )
+                    }
+                }
+            }
+
+            if (onChangeFile != null) {
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = onChangeFile,
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(WhiteColor, RoundedCornerShape(8.dp))
+                        .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
+                        .testTag("change_file_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Change file",
+                        tint = BlackColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * State 3: Neobrutalist option pill for settings. Meets WCAG 2.1 AA touch target standards (>= 48dp).
+ */
+@Composable
+fun OptionPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    subtext: String? = null,
+    selectedColor: Color = FlippYellow
+) {
+    val backgroundColor = if (selected) selectedColor else WhiteColor
+    val shape = RoundedCornerShape(8.dp)
+
+    Box(
+        modifier = modifier
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = onClick
+            )
+            .background(backgroundColor, shape)
+            .border(2.dp, BlackColor, shape)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = label,
+                fontSize = 13.sp,
+                fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
+                color = BlackColor
+            )
+            if (subtext != null) {
+                Text(
+                    text = subtext,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = if (selected) BlackColor.copy(alpha = 0.8f) else Color(0xFF777777)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * State 3: Horizontally grouped pill selector.
+ */
+@Composable
+fun <T> NeobrutalistPillGroup(
+    title: String,
+    options: List<T>,
+    selectedOption: T,
+    onOptionSelected: (T) -> Unit,
+    labelProvider: (T) -> String,
+    modifier: Modifier = Modifier,
+    subtextProvider: ((T) -> String?)? = null,
+    selectedColor: Color = FlippYellow
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Black,
+            color = BlackColor,
+            letterSpacing = 0.5.sp,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            options.forEach { option ->
+                val isSelected = option == selectedOption
+                OptionPill(
+                    label = labelProvider(option),
+                    subtext = subtextProvider?.invoke(option),
+                    selected = isSelected,
+                    selectedColor = selectedColor,
+                    onClick = { onOptionSelected(option) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * State 3: Progressive-disclosure expandable settings container.
+ */
+@Composable
+fun CollapsibleSettingsCard(
+    modifier: Modifier = Modifier,
+    title: String = "Settings & Options",
+    initiallyExpanded: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    var isExpanded by rememberSaveable { mutableStateOf(initiallyExpanded) }
+
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = WhiteColor,
+        cornerRadius = 12.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        role = Role.Button,
+                        onClickLabel = if (isExpanded) "Collapse settings" else "Expand settings",
+                        onClick = { isExpanded = !isExpanded }
+                    ),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BlackColor
+                )
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = BlackColor
+                )
+            }
+            if (isExpanded) {
+                Spacer(modifier = Modifier.height(14.dp))
+                content()
+            }
+        }
+    }
+}
+
+/**
+ * State 3: Position Grid Selector for watermarking & page numbering.
+ */
+@Composable
+fun PositionGridSelector(
+    selectedPosition: String,
+    onPositionSelected: (String) -> Unit,
+    positions: List<Pair<String, String>>,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        Text(
+            text = "POSITION",
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Black,
+            color = BlackColor,
+            letterSpacing = 0.5.sp,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        val chunked = positions.chunked(3)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            chunked.forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowItems.forEach { (key, label) ->
+                        val isSelected = key == selectedPosition
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .selectable(
+                                    selected = isSelected,
+                                    role = Role.RadioButton,
+                                    onClick = { onPositionSelected(key) }
+                                )
+                                .background(if (isSelected) FlippYellow else WhiteColor, RoundedCornerShape(8.dp))
+                                .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
+                                .padding(vertical = 12.dp, horizontal = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                color = BlackColor,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * State 1 (Idle): Explanatory How It Works guide card.
+ */
+@Composable
+fun FeatureHowItWorksCard(
+    modifier: Modifier = Modifier,
+    step1: String = "Select your file from device",
+    step2: String = "Customize processing options",
+    step3: String = "Export and save locally"
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = CreamColor,
+        cornerRadius = 12.dp
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Text(
+                text = "HOW IT WORKS",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                color = BlackColor,
+                letterSpacing = 0.5.sp
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            listOf("1" to step1, "2" to step2, "3" to step3).forEach { (num, text) ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .background(FlippYellow, RoundedCornerShape(50))
+                            .border(1.5.dp, BlackColor, RoundedCornerShape(50)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = num, fontSize = 11.sp, fontWeight = FontWeight.Black, color = BlackColor)
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(text = text, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = BlackColor)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * State 4 (Processing): Dedicated card showing progress, label, and device privacy assurance.
+ */
+@Composable
+fun ProcessingStageCard(
+    progress: Float,
+    statusText: String,
+    modifier: Modifier = Modifier,
+    stepDetails: String? = null
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = WhiteColor,
+        cornerRadius = 14.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = statusText,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Black,
+                color = BlackColor,
+                textAlign = TextAlign.Center
+            )
+            if (stepDetails != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = stepDetails,
+                    fontSize = 12.sp,
+                    color = Color(0xFF666666),
+                    textAlign = TextAlign.Center
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            StageProgressBar(progress = progress, label = statusText)
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lock,
+                    contentDescription = "On-device processing",
+                    tint = BlackColor,
+                    modifier = Modifier.size(12.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Processing locally on your device",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF555555)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * State 5 (Completed): High-contrast results celebration hero card.
+ */
+@Composable
+fun CompletedHeroCard(
+    modifier: Modifier = Modifier,
+    title: String = "✓ Conversion complete!",
+    subtitle: String = "Your output is ready to download.",
+    primaryButtonText: String = "Download Output 📁",
+    onPrimaryClick: () -> Unit,
+    secondaryButtonText: String = "Convert Another ↺",
+    onSecondaryClick: () -> Unit,
+    accentColor: Color = MintColor
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = accentColor,
+        cornerRadius = 16.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Black,
+                color = BlackColor,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = subtitle,
+                fontSize = 13.sp,
+                color = Color(0xFF222222),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            BrutalistButton(
+                text = primaryButtonText,
+                onClick = onPrimaryClick,
+                backgroundColor = FlippYellow,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            BrutalistButton(
+                text = secondaryButtonText,
+                onClick = onSecondaryClick,
+                backgroundColor = WhiteColor,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+/**
+ * State 5 (Completed): Individual page/file result card for bulk tools (PDF to PNG, Split PDF).
+ */
+@Composable
+fun IndividualOutputCard(
+    title: String,
+    bitmap: Bitmap?,
+    onSave: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = WhiteColor,
+        cornerRadius = 10.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (bitmap != null) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = "Page thumbnail for $title",
+                    modifier = Modifier
+                        .size(56.dp)
+                        .background(CreamColor, RoundedCornerShape(6.dp))
+                        .border(1.5.dp, BlackColor, RoundedCornerShape(6.dp))
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = title,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = BlackColor,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            BrutalistButton(
+                text = "Save",
+                onClick = onSave,
+                backgroundColor = FlippYellow,
+                modifier = Modifier.widthIn(min = 90.dp)
+            )
+        }
+    }
+}
+
+/**
+ * Error State Card: High-contrast error message and retry action.
+ */
+@Composable
+fun ErrorCard(
+    errorMessage: String,
+    modifier: Modifier = Modifier,
+    onDismissOrRetry: (() -> Unit)? = null,
+    retryButtonText: String = "Try Again"
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = Color(0xFFFFEBEA),
+        cornerRadius = 12.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "⚠️ Operation Failed",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Black,
+                color = RedColor
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = errorMessage,
+                fontSize = 13.sp,
+                color = BlackColor,
+                lineHeight = 18.sp
+            )
+            if (onDismissOrRetry != null) {
+                Spacer(modifier = Modifier.height(14.dp))
+                BrutalistButton(
+                    text = retryButtonText,
+                    onClick = onDismissOrRetry,
+                    backgroundColor = WhiteColor
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Item card for multi-file tools (Merge PDF, Images to PDF) supporting reordering and removal.
+ */
+@Composable
+fun MultiFileQueueCard(
+    index: Int,
+    fileName: String,
+    modifier: Modifier = Modifier,
+    fileSizeStr: String? = null,
+    onMoveUp: (() -> Unit)? = null,
+    onMoveDown: (() -> Unit)? = null,
+    onRemove: (() -> Unit)? = null,
+    canMoveUp: Boolean = true,
+    canMoveDown: Boolean = true
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = WhiteColor,
+        cornerRadius = 10.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(FlippYellow, RoundedCornerShape(6.dp))
+                    .border(1.5.dp, BlackColor, RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "${index + 1}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    color = BlackColor
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = fileName,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BlackColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (fileSizeStr != null) {
+                    Text(
+                        text = fileSizeStr,
+                        fontSize = 11.sp,
+                        color = Color(0xFF666666)
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onMoveUp != null) {
+                    IconButton(
+                        onClick = onMoveUp,
+                        enabled = canMoveUp,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Move item ${index + 1} up",
+                            tint = if (canMoveUp) BlackColor else Color.LightGray,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                if (onMoveDown != null) {
+                    IconButton(
+                        onClick = onMoveDown,
+                        enabled = canMoveDown,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Move item ${index + 1} down",
+                            tint = if (canMoveDown) BlackColor else Color.LightGray,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                if (onRemove != null) {
+                    IconButton(
+                        onClick = onRemove,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Remove item ${index + 1}",
+                            tint = RedColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Interactive thumbnail card for page management (Delete PDF Pages, Rearrange PDF).
+ */
+@Composable
+fun InteractivePageThumbnailCard(
+    pageIndex: Int,
+    bitmap: Bitmap?,
+    modifier: Modifier = Modifier,
+    isMarkedForDeletion: Boolean = false,
+    onDeleteToggle: (() -> Unit)? = null
+) {
+    val backgroundColor = if (isMarkedForDeletion) Color(0xFFFFD2D2) else WhiteColor
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = backgroundColor,
+        cornerRadius = 10.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+                    .background(CreamColor, RoundedCornerShape(6.dp))
+                    .border(1.5.dp, BlackColor, RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (bitmap != null) {
+                    Image(
+                        bitmap = bitmap.asImageBitmap(),
+                        contentDescription = "Thumbnail for page ${pageIndex + 1}",
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Text(
+                        text = "Page ${pageIndex + 1}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BlackColor
+                    )
+                }
+                if (isMarkedForDeletion) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Red.copy(alpha = 0.35f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "✕ DELETED",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Page ${pageIndex + 1}",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black,
+                    color = BlackColor
+                )
+                if (onDeleteToggle != null) {
+                    IconButton(
+                        onClick = onDeleteToggle,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = if (isMarkedForDeletion) "Restore page ${pageIndex + 1}" else "Delete page ${pageIndex + 1}",
+                            tint = if (isMarkedForDeletion) Color.Gray else RedColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
         }
     }

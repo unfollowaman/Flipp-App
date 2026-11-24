@@ -38,57 +38,49 @@ object PdfUtils {
     ) {
         val contentResolver = context.contentResolver
         val pfd = contentResolver.openFileDescriptor(pdfUri, "r") ?: throw Exception("Failed to open file descriptor")
-        
-        try {
-            val renderer = PdfRenderer(pfd)
-            val pageCount = renderer.pageCount
-            
-            // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PNG compression
-            val zipOut = ZipOutputStream(outputStream.buffered())
-            // Optimize: PNG images are already compressed using zlib DEFLATE in Bitmap.compress.
-            // Setting zip compression level to NO_COMPRESSION bypasses a redundant second DEFLATE pass, saving CPU time.
-            zipOut.setLevel(Deflater.NO_COMPRESSION)
-            
-            var reusableBitmap: Bitmap? = null
-            try {
-                for (i in 0 until pageCount) {
-                    val page = renderer.openPage(i)
 
-                    // Scale width/height by resolution options (1x, 2x, 3x)
-                    val width = page.width * scale
-                    val height = page.height * scale
+        pfd.use { descriptor ->
+            PdfRenderer(descriptor).use { renderer ->
+                val pageCount = renderer.pageCount
+                val zipOut = ZipOutputStream(outputStream.buffered())
+                zipOut.setLevel(Deflater.NO_COMPRESSION)
 
-                    val bitmap = if (reusableBitmap != null && reusableBitmap.width == width && reusableBitmap.height == height) {
-                        reusableBitmap.eraseColor(Color.TRANSPARENT)
-                        reusableBitmap
-                    } else {
-                        reusableBitmap?.recycle()
-                        Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
-                            reusableBitmap = it
+                try {
+                    var reusableBitmap: Bitmap? = null
+                    try {
+                        for (i in 0 until pageCount) {
+                            renderer.openPage(i).use { page ->
+                                val width = page.width * scale
+                                val height = page.height * scale
+
+                                val bitmap = if (reusableBitmap != null && reusableBitmap.width == width && reusableBitmap.height == height) {
+                                    reusableBitmap.eraseColor(Color.TRANSPARENT)
+                                    reusableBitmap
+                                } else {
+                                    reusableBitmap?.recycle()
+                                    Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+                                        reusableBitmap = it
+                                    }
+                                }
+
+                                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+
+                                val entry = ZipEntry("page_${i + 1}.png")
+                                zipOut.putNextEntry(entry)
+                                bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
+                                zipOut.closeEntry()
+
+                                onProgress(i + 1, pageCount)
+                            }
                         }
+                    } finally {
+                        reusableBitmap?.recycle()
                     }
-
-                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-
-                    // Add to zip
-                    val entry = ZipEntry("page_${i + 1}.png")
-                    zipOut.putNextEntry(entry)
-
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, zipOut)
-                    zipOut.closeEntry()
-
-                    page.close()
-
-                    onProgress(i + 1, pageCount)
+                    zipOut.finish()
+                } finally {
+                    zipOut.close()
                 }
-            } finally {
-                reusableBitmap?.recycle()
             }
-            zipOut.finish()
-            zipOut.close()
-            renderer.close()
-        } finally {
-            pfd.close()
         }
     }
 
@@ -174,31 +166,41 @@ object PdfUtils {
         outputStream: OutputStream,
         onProgress: (Int, Int) -> Unit
     ) {
-        // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF merge
         val bufferedOut = outputStream.buffered()
         val doc = Document()
         val copy = PdfCopy(doc, bufferedOut)
         doc.open()
         
-        val total = pdfUris.size
-        
-        for ((index, uri) in pdfUris.withIndex()) {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: continue
-            val reader = PdfReader(inputStream)
-            val numPages = reader.numberOfPages
-
-            for (p in 1..numPages) {
-                copy.addPage(copy.getImportedPage(reader, p))
+        try {
+            val total = pdfUris.size
+            for ((index, uri) in pdfUris.withIndex()) {
+                val inputStream = context.contentResolver.openInputStream(uri)
+                    ?: throw java.io.FileNotFoundException("File not found: $uri")
+                inputStream.use { stream ->
+                    val reader = PdfReader(stream)
+                    try {
+                        val numPages = reader.numberOfPages
+                        for (p in 1..numPages) {
+                            copy.addPage(copy.getImportedPage(reader, p))
+                        }
+                        copy.freeReader(reader)
+                    } finally {
+                        reader.close()
+                    }
+                }
+                onProgress(index + 1, total)
             }
-            // Optimize memory: Free reader internal objects in PdfCopy after importing pages to allow early GC
-            copy.freeReader(reader)
-            reader.close()
-            inputStream.close()
-            onProgress(index + 1, total)
+            doc.close()
+            copy.close()
+        } catch (e: Throwable) {
+            try {
+                if (doc.isOpen) doc.close()
+            } catch (_: Throwable) {}
+            try {
+                copy.close()
+            } catch (_: Throwable) {}
+            throw e
         }
-        
-        doc.close()
-        copy.close()
     }
 
     /**
@@ -211,30 +213,39 @@ object PdfUtils {
         endPage: Int,
         outputStream: OutputStream
     ) {
-        val inputStream = context.contentResolver.openInputStream(pdfUri) ?: throw Exception("Failed to open input stream")
-        val reader = PdfReader(inputStream)
-        val numPages = reader.numberOfPages
+        val inputStream = context.contentResolver.openInputStream(pdfUri)
+            ?: throw java.io.FileNotFoundException("Failed to open input stream: $pdfUri")
+        inputStream.use { stream ->
+            val reader = PdfReader(stream)
+            try {
+                val numPages = reader.numberOfPages
+                if (startPage < 1 || endPage > numPages || startPage > endPage) {
+                    throw IllegalArgumentException("No valid pages in range.")
+                }
 
-        if (startPage < 1 || endPage > numPages || startPage > endPage) {
-            reader.close()
-            inputStream.close()
-            throw IllegalArgumentException("No valid pages in range.")
+                val bufferedOut = outputStream.buffered()
+                val doc = Document()
+                val copy = PdfCopy(doc, bufferedOut)
+                doc.open()
+                try {
+                    for (p in startPage..endPage) {
+                        copy.addPage(copy.getImportedPage(reader, p))
+                    }
+                    doc.close()
+                    copy.close()
+                } catch (e: Throwable) {
+                    try {
+                        if (doc.isOpen) doc.close()
+                    } catch (_: Throwable) {}
+                    try {
+                        copy.close()
+                    } catch (_: Throwable) {}
+                    throw e
+                }
+            } finally {
+                reader.close()
+            }
         }
-
-        // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF split
-        val bufferedOut = outputStream.buffered()
-        val doc = Document()
-        val copy = PdfCopy(doc, bufferedOut)
-        doc.open()
-
-        for (p in startPage..endPage) {
-            copy.addPage(copy.getImportedPage(reader, p))
-        }
-
-        doc.close()
-        copy.close()
-        reader.close()
-        inputStream.close()
     }
 
     /**
