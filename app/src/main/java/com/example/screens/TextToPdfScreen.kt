@@ -272,7 +272,11 @@ fun TextToPdfScreen(onBack: () -> Unit) {
                         backgroundColor = CreamColor,
                         cornerRadius = 16.dp
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp)
+                        ) {
                             Text(
                                 text = "HOW IT WORKS 📝",
                                 fontSize = 11.sp,

@@ -101,7 +101,10 @@ fun BrutalistShadowBox(
             label = "offsetAnimation"
         )
 
-        Box(modifier = modifier) {
+        Box(
+            modifier = modifier,
+            propagateMinConstraints = true
+        ) {
             // Shadow
             Box(
                 modifier = Modifier
@@ -126,11 +129,15 @@ fun BrutalistShadowBox(
                         onClickLabel = onClickLabel,
                         onClick = onClick
                     ),
+                propagateMinConstraints = true,
                 content = content
             )
         }
     } else {
-        Box(modifier = modifier) {
+        Box(
+            modifier = modifier,
+            propagateMinConstraints = true
+        ) {
             // Shadow
             Box(
                 modifier = Modifier
@@ -143,6 +150,7 @@ fun BrutalistShadowBox(
                 modifier = Modifier
                     .background(backgroundColor, shape)
                     .border(borderWidth, shadowColor, shape),
+                propagateMinConstraints = true,
                 content = content
             )
         }
@@ -350,7 +358,7 @@ private val dropZonePathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f
 fun DropZone(
     onBrowseClick: () -> Unit,
     prompt: String = "Drag files here or",
-    browseText: String = "browse files",
+    browseText: String = "Browse Files",
     errorText: String? = null,
     badgeColor: Color = WhiteColor
 ) {
@@ -1163,7 +1171,11 @@ fun ToolScreenTemplate(
                 backgroundColor = badgeColor,
                 cornerRadius = 16.dp
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
                     Text(
                         text = title,
                         fontSize = 20.sp,

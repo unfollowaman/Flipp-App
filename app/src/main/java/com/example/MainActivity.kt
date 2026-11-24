@@ -72,11 +72,6 @@ fun MainApp() {
                 )
             }
         },
-        bottomBar = {
-            if (currentScreen == "home") {
-                BottomTrustBar()
-            }
-        },
         containerColor = BackgroundColor
     ) { innerPadding ->
         Box(
@@ -284,11 +279,17 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
         // Trust Card
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
             BrutalistShadowBox(
-                modifier = Modifier.padding(horizontal = 16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 backgroundColor = CreamColor,
                 cornerRadius = 16.dp
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
                     Text(
                         text = "Your files never leave your device. 🔒",
                         fontSize = 13.sp,
@@ -462,11 +463,13 @@ fun PrivacyCard(icon: String, title: String, body: String, bgColor: Color) {
         cornerRadius = 16.dp
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(text = icon, fontSize = 20.sp)
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     fontSize = 13.sp,
