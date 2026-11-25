@@ -196,11 +196,12 @@ fun ImagesToPdfScreen(onBack: () -> Unit) {
                                         context = context,
                                         imageUris = selectedImageUris.toList(),
                                         pageSizeOption = pageSizeSelection,
-                                        outputStream = fos
-                                    ) { current, total ->
-                                        progressVal = current.toFloat() / total
-                                        progressLabel = "Adding image $current of $total... (${(progressVal * 100).toInt()}%)"
-                                    }
+                                        outputStream = fos,
+                                        onProgress = { current, total ->
+                                            progressVal = current.toFloat() / total
+                                            progressLabel = "Adding image $current of $total... (${(progressVal * 100).toInt()}%)"
+                                        }
+                                    )
                                 }
 
                                 withContext(Dispatchers.Main) {

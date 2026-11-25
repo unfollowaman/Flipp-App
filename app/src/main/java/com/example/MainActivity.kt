@@ -17,15 +17,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -85,7 +88,6 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp() {
-    val context = LocalContext.current
     var currentScreen by rememberSaveable { mutableStateOf("home") }
 
     // Navigation and back press handling
@@ -103,11 +105,6 @@ fun MainApp() {
                 )
             }
         },
-        bottomBar = {
-            if (currentScreen == "home") {
-                BottomTrustBar()
-            }
-        },
         containerColor = BackgroundColor
     ) { innerPadding ->
         Box(
@@ -118,15 +115,27 @@ fun MainApp() {
             when (currentScreen) {
                 "home" -> HomeScreen(onScreenNavigate = { currentScreen = it })
                 "privacy" -> PrivacyScreen()
+                // Phase 1: High Traffic Conversion
                 "pdf_png" -> PdfToPngScreen(onBack = { currentScreen = "home" })
                 "image_pdf" -> ImagesToPdfScreen(onBack = { currentScreen = "home" })
                 "merge_pdf" -> MergePdfScreen(onBack = { currentScreen = "home" })
                 "split_pdf" -> SplitPdfScreen(onBack = { currentScreen = "home" })
+                // Phase 2: Security & Stamping
                 "protect_pdf" -> ProtectPdfScreen(onBack = { currentScreen = "home" })
+                "unlock_pdf" -> UnlockPdfScreen(onBack = { currentScreen = "home" })
                 "add_page_num" -> AddPageNumScreen(onBack = { currentScreen = "home" })
                 "add_watermark" -> AddWatermarkScreen(onBack = { currentScreen = "home" })
-                "text_pdf" -> TextToPdfScreen(onBack = { currentScreen = "home" })
+                "sign_pdf" -> SignPdfScreen(onBack = { currentScreen = "home" })
+                // Phase 3: Content Extraction & Text Conversion
                 "pdf_text" -> PdfToTextScreen(onBack = { currentScreen = "home" })
+                "text_pdf" -> TextToPdfScreen(onBack = { currentScreen = "home" })
+                "pdf_word" -> PdfToWordScreen(onBack = { currentScreen = "home" })
+                // Phase 4: Page Management & Optimization
+                "compress_pdf" -> CompressPdfScreen(onBack = { currentScreen = "home" })
+                "delete_pdf" -> DeletePdfPagesScreen(onBack = { currentScreen = "home" })
+                "rearrange_pdf" -> RearrangePdfScreen(onBack = { currentScreen = "home" })
+                // Phase 5: Interactive Editor
+                "edit_pdf" -> EditPdfScreen(onBack = { currentScreen = "home" })
             }
         }
     }
@@ -137,15 +146,31 @@ fun MainApp() {
 fun HomeScreen(onScreenNavigate: (String) -> Unit) {
     val tools = remember {
         listOf(
+            // High-Traffic Conversion Utilities
             ToolItem("PDF → PNG", "PDF to Images", "Convert every PDF page to crisp PNG.", "pdf_png", YellowColor, "📄"),
-            ToolItem("IMG → PDF", "Images to PDF", "Combine photos into one PDF file.", "image_pdf", PinkColor, "🖼️"),
-            ToolItem("MERGE", "Merge PDFs", "Combine multiple PDFs into one.", "merge_pdf", MintColor, "🔗"),
-            ToolItem("SPLIT", "Split PDF", "Extract any page range instantly.", "split_pdf", SkyBlueColor, "✂️"),
-            ToolItem("PROTECT", "Protect PDF", "Password-encrypt with AES-256.", "protect_pdf", WhiteColor, "🔒", YellowColor),
-            ToolItem("PAGES", "Page Numbers", "Stamp numbers at any position.", "add_page_num", AmberColor, "🔢"),
-            ToolItem("WATERMARK", "Add Watermark", "Stamp images or text.", "add_watermark", SkyBlueColor, "💧", WhiteColor),
-            ToolItem("TXT → PDF", "Text to PDF", "Convert text to a PDF file.", "text_pdf", MintColor, "📝"),
-            ToolItem("PDF → TXT", "PDF to Text", "Extract all text from a PDF document.", "pdf_text", SkyBlueColor, "📑")
+            ToolItem("IMG → PDF", "Images to PDF", "Combine photos into one PDF file.", "image_pdf", SkyBlueColor, "🖼️"),
+            ToolItem("MERGE", "Merge PDFs", "Combine multiple PDFs into one.", "merge_pdf", PinkColor, "🔗"),
+            ToolItem("SPLIT", "Split PDF", "Extract any page range instantly.", "split_pdf", RedColor, "✂️"),
+
+            // Document Security & Stamping Utilities
+            ToolItem("PROTECT", "Protect PDF", "Password-encrypt with AES-256.", "protect_pdf", AmberColor, "🔒"),
+            ToolItem("UNLOCK", "Unlock PDF", "Remove password protection locally.", "unlock_pdf", MintColor, "🔓"),
+            ToolItem("PAGES", "Page Numbers", "Stamp numbers at any position.", "add_page_num", YellowColor, "🔢"),
+            ToolItem("WATERMARK", "Add Watermark", "Stamp images or text overlays.", "add_watermark", SkyBlueColor, "💧"),
+            ToolItem("SIGN", "Sign PDF", "Draw, type, or place signature.", "sign_pdf", YellowColor, "✍️"),
+
+            // Content Extraction & Text Conversion
+            ToolItem("PDF → TXT", "PDF to Text", "Extract all text from a PDF document.", "pdf_text", SkyBlueColor, "📑"),
+            ToolItem("TXT → PDF", "Text to PDF", "Convert raw text to a PDF file.", "text_pdf", PinkColor, "📝"),
+            ToolItem("PDF → WORD", "PDF to Word", "Convert PDF to editable DOCX format.", "pdf_word", SkyBlueColor, "📄"),
+
+            // Page Management & Optimization
+            ToolItem("COMPRESS", "Compress PDF", "Reduce PDF size with smart compression.", "compress_pdf", PinkColor, "📦"),
+            ToolItem("DELETE", "Delete Pages", "Remove unwanted pages from PDF.", "delete_pdf", RedColor, "🗑️"),
+            ToolItem("REORDER", "Rearrange PDF", "Reorder, sort, and organize pages.", "rearrange_pdf", MintColor, "🔄"),
+
+            // Interactive Editor
+            ToolItem("EDIT", "Edit PDF", "Draw, markup, and annotate pages.", "edit_pdf", YellowColor, "✏️")
         )
     }
 
@@ -201,7 +226,7 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
         // Tools Label
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
             Text(
-                text = "TOOLS",
+                text = "ALL 16 TOOLS",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.1.em,
@@ -248,14 +273,15 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
                         fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = BlackColor,
-                        letterSpacing = (-0.01).em
+                        maxLines = 1
                     )
+
                     Text(
                         text = tool.desc,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = Color(0xFF666666),
-                        lineHeight = 15.sp
+                        color = Color(0xFF444444),
+                        lineHeight = 15.sp,
+                        maxLines = 2
                     )
                 }
             }
@@ -289,10 +315,14 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                backgroundColor = WhiteColor,
+                backgroundColor = CreamColor,
                 cornerRadius = 16.dp
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
                     Text(
                         text = "Zero-Risk Guarantee",
                         fontSize = 14.sp,
@@ -302,7 +332,7 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
                     )
                     TrustRow(MintColor, "Files are never uploaded to any server")
                     TrustRow(SkyBlueColor, "No account or registration required")
-                    TrustRow(YellowColor, "Conversions run directly on your hardware")
+                    TrustRow(PinkColor, "100% on-device local processing")
                 }
             }
         }
@@ -310,117 +340,153 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
 }
 
 @Composable
-fun StepItem(number: String, title: String, desc: String, color: Color) {
+fun StepItem(number: String, title: String, desc: String, accentColor: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.Top
     ) {
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .background(color, RoundedCornerShape(6.dp))
-                .border(2.dp, BlackColor, RoundedCornerShape(6.dp)),
+                .size(36.dp)
+                .background(accentColor, CircleShape)
+                .border(2.dp, BlackColor, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = number, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = BlackColor)
+            Text(
+                text = number,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                color = BlackColor
+            )
         }
-        Column {
-            Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = BlackColor)
-            Text(text = desc, fontSize = 11.sp, color = Color(0xFF666666), lineHeight = 15.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = BlackColor,
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
+            Text(
+                text = desc,
+                fontSize = 12.sp,
+                color = Color(0xFF555555),
+                lineHeight = 17.sp
+            )
         }
     }
 }
 
 @Composable
-fun TrustRow(color: Color, text: String) {
+fun TrustRow(dotColor: Color, text: String) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
                 .size(8.dp)
-                .background(color, androidx.compose.foundation.shape.CircleShape)
-                .border(1.5.dp, BlackColor, androidx.compose.foundation.shape.CircleShape)
+                .background(dotColor, CircleShape)
+                .border(1.5.dp, BlackColor, CircleShape)
         )
-        Text(text = text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = BlackColor)
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFF333333)
+        )
     }
 }
 
-data class ToolItem(val badge: String, val title: String, val desc: String, val screenKey: String, val badgeColor: Color, val icon: String = "", val badgeBgColor: Color? = null)
+data class ToolItem(
+    val badge: String,
+    val title: String,
+    val desc: String,
+    val screenKey: String,
+    val badgeColor: Color,
+    val icon: String,
+    val badgeBgColor: Color? = null
+)
 
-
-// ---------------------- PRIVACY SCREEN ----------------------
+// ---------------------- PRIVACY POLICY SCREEN ----------------------
 @Composable
 fun PrivacyScreen() {
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WhiteColor)
+            .background(BackgroundColor)
+            .verticalScroll(scrollState)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        LazyColumn(
+        // Hero badge
+        Box(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .background(MintColor, RoundedCornerShape(99.dp))
+                .border(2.dp, BlackColor, RoundedCornerShape(99.dp))
+                .padding(horizontal = 14.dp, vertical = 6.dp)
         ) {
-            item {
-                BrutalistShadowBox(
-                    modifier = Modifier.fillMaxWidth(),
-                    backgroundColor = MintColor,
-                    cornerRadius = 24.dp
-                ) {
-                    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 24.dp)) {
-                        Text(text = "🔒", fontSize = 28.sp, modifier = Modifier.padding(bottom = 10.dp))
-                        Text(
-                            text = "Your privacy is the product.",
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = (-0.02).em,
-                            lineHeight = 24.sp,
-                            color = BlackColor,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        Text(
-                            text = "flipp was built with one rule: your files never leave your device. Ever.",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = Color(0xFF1A1A1A),
-                            lineHeight = 19.sp
-                        )
-                    }
-                }
-            }
+            Text(
+                text = "🛡️ 100% OFFLINE PRIVACY GUARANTEE",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                color = BlackColor,
+                letterSpacing = 0.05.em
+            )
+        }
 
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    PrivacyCard("🚫", "No Uploads", "Your file is never uploaded. Everything is processed on your device using local libraries.", WhiteColor)
-                    PrivacyCard("📡", "No Network Calls", "The app makes zero network requests during file processing. Works fully offline.", CreamColor)
-                    PrivacyCard("👤", "No Account Needed", "No sign-up. No email. No profile. Just install and use.", WhiteColor)
-                    PrivacyCard("📦", "Open Source Libraries", "Built on open-source PDF libraries. No proprietary black boxes.", YellowColor)
-                }
-            }
+        Text(
+            text = "Your Files Never\nLeave Your Phone.",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Black,
+            lineHeight = 32.sp,
+            letterSpacing = (-0.03).em,
+            color = BlackColor
+        )
 
-            item {
-                BrutalistShadowBox(
-                    modifier = Modifier.fillMaxWidth(),
-                    backgroundColor = BlackColor,
-                    cornerRadius = 16.dp
-                ) {
-                    Box(modifier = Modifier.padding(16.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "✦ no uploads. no servers. 100% local.",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = WhiteColor,
-                            letterSpacing = 0.02.em
-                        )
-                    }
-                }
+        Text(
+            text = "Most file converters send your documents to a cloud server to be processed. Flipp doesn't. Every single tool runs locally on your Android device.",
+            fontSize = 13.sp,
+            color = Color(0xFF444444),
+            lineHeight = 20.sp
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        PrivacyCard("📡", "Zero Network Traffic", "Flipp has no network permissions in its manifest. It cannot communicate with any server even if it wanted to.", CreamColor)
+        PrivacyCard("💾", "No Local File Storage", "Files are opened via Android's Storage Access Framework (SAF). Flipp does not store, copy, or cache your documents after conversion.", WhiteColor)
+        PrivacyCard("🔒", "Client-Side Encryption", "When you protect a PDF with a password, AES-256 encryption happens locally on your processor. We never see your password.", SkyBlueColor)
+        PrivacyCard("🚫", "No Analytics or Telemetry", "No Google Analytics, no Firebase, no crash reporting SDKs. Your app usage is completely private.", PinkColor)
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        BrutalistShadowBox(
+            modifier = Modifier.fillMaxWidth(),
+            backgroundColor = MintColor,
+            cornerRadius = 16.dp
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = "The Open Source Promise",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Black,
+                    color = BlackColor
+                )
+                Text(
+                    text = "Flipp is completely open source. You can audit every line of Kotlin code yourself to verify that no network requests are ever made.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF222222),
+                    lineHeight = 18.sp
+                )
             }
         }
     }
@@ -434,11 +500,13 @@ fun PrivacyCard(icon: String, title: String, body: String, bgColor: Color) {
         cornerRadius = 16.dp
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(text = icon, fontSize = 20.sp)
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
                     fontSize = 13.sp,
@@ -455,63 +523,6 @@ fun PrivacyCard(icon: String, title: String, body: String, bgColor: Color) {
             }
         }
     }
-}
-
-
-// ---------------------- UTILS: SCREEN TEMPLATE & PREVIEW RENDERING ----------------------
-@Composable
-fun ToolScreenTemplate(
-    title: String,
-    desc: String,
-    badgeLabel: String,
-    onBack: () -> Unit,
-    badgeColor: androidx.compose.ui.graphics.Color,
-    content: @Composable () -> Unit
-) {
-    FeaturePageScaffold(
-        title = title,
-        desc = desc,
-        badgeLabel = badgeLabel,
-        onBack = onBack,
-        badgeColor = badgeColor
-    ) {
-        content()
-    }
-}
-
-/**
- * Visual background thumbnail helper using Android PdfRenderer with strict resource hygiene.
- */
-fun loadPdfThumbnails(context: Context, pdfUri: Uri, maxPages: Int = 4): List<Bitmap> {
-    val bitmaps = mutableListOf<Bitmap>()
-    try {
-        context.contentResolver.openFileDescriptor(pdfUri, "r")?.use { pfd ->
-            try {
-                PdfRenderer(pfd).use { renderer ->
-                    val pagesToRender = minOf(renderer.pageCount, maxPages)
-                    for (i in 0 until pagesToRender) {
-                        try {
-                            renderer.openPage(i).use { page ->
-                                val width = page.width / 2
-                                val height = page.height / 2
-                                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-                                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                                bitmaps.add(bitmap)
-                            }
-                        } catch (e: Exception) {
-                            AppLogger.e("MainActivity", "Error rendering thumbnail page $i", e)
-                        }
-                    }
-                }
-            } catch (e: SecurityException) {
-                // PdfRenderer throws SecurityException if the PDF is encrypted/password-protected
-                return emptyList()
-            }
-        }
-    } catch (e: Exception) {
-        AppLogger.e("MainActivity", "Error generating PDF thumbnails", e)
-    }
-    return bitmaps
 }
 
 /**
@@ -536,23 +547,5 @@ fun clearStaleScratchFiles(context: Context) {
         }
     } catch (e: Exception) {
         AppLogger.e("MainActivity", "Error cleaning stale scratch files", e)
-    }
-}
-
-/**
- * Responsive thumbnail sizing helper
- */
-fun loadImageThumbnail(context: Context, uri: Uri): Bitmap? {
-    return try {
-        val options = BitmapFactory.Options().apply {
-            inSampleSize = 8
-        }
-        context.contentResolver.openInputStream(uri)?.use { inputStream ->
-            BitmapFactory.decodeStream(inputStream, null, options)
-        }
-    } catch (e: Exception) {
-        // Exception handled by returning null which is managed by the caller
-        AppLogger.e("MainActivity", "Error loading image thumbnail", e)
-        null
     }
 }

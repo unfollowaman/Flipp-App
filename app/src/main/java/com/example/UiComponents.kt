@@ -1,77 +1,68 @@
 package com.example
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.pdf.PdfRenderer
+import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.progressSemantics
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.progressSemantics
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
-import android.net.Uri
-import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import android.graphics.Bitmap
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.text.style.TextOverflow
 import com.example.ui.theme.*
-import com.example.ui.theme.CreamColor
-import com.example.ui.theme.WhiteColor
 
 @Composable
 fun BrutalistShadowBox(
@@ -96,7 +87,10 @@ fun BrutalistShadowBox(
             label = "offsetAnimation"
         )
 
-        Box(modifier = modifier, propagateMinConstraints = true) {
+        Box(
+            modifier = modifier,
+            propagateMinConstraints = true
+        ) {
             // Shadow
             Box(
                 modifier = Modifier
@@ -121,11 +115,15 @@ fun BrutalistShadowBox(
                         onClickLabel = onClickLabel,
                         onClick = onClick
                     ),
+                propagateMinConstraints = true,
                 content = content
             )
         }
     } else {
-        Box(modifier = modifier, propagateMinConstraints = true) {
+        Box(
+            modifier = modifier,
+            propagateMinConstraints = true
+        ) {
             // Shadow
             Box(
                 modifier = Modifier
@@ -138,6 +136,7 @@ fun BrutalistShadowBox(
                 modifier = Modifier
                     .background(backgroundColor, shape)
                     .border(borderWidth, shadowColor, shape),
+                propagateMinConstraints = true,
                 content = content
             )
         }
@@ -165,8 +164,8 @@ fun BrutalistButton(
             fontWeight = FontWeight.Bold,
             color = BlackColor,
             modifier = Modifier
-                .padding(vertical = 14.dp, horizontal = 24.dp)
-                .align(Alignment.Center),
+                .fillMaxWidth()
+                .padding(vertical = 14.dp, horizontal = 28.dp),
             textAlign = TextAlign.Center
         )
     }
@@ -345,7 +344,7 @@ private val dropZonePathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f
 fun DropZone(
     onBrowseClick: () -> Unit,
     prompt: String = "Drag files here or",
-    browseText: String = "browse files",
+    browseText: String = "Browse Files",
     errorText: String? = null,
     badgeColor: Color = WhiteColor
 ) {
@@ -509,6 +508,676 @@ fun StageProgressBar(
                         .background(MintColor, RoundedCornerShape(99.dp))
                 )
             }
+        }
+    }
+}
+
+@Composable
+fun OptionPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    sublabel: String? = null,
+    subtext: String? = null,
+    badgeText: String? = null,
+    activeColor: Color = BlackColor,
+    activeTextColor: Color = WhiteColor,
+    inactiveColor: Color = WhiteColor,
+    inactiveTextColor: Color = BlackColor,
+    selectedColor: Color? = null,
+    testTag: String? = null
+) {
+    val haptic = LocalHapticFeedback.current
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val shape = RoundedCornerShape(10.dp)
+
+    val resolvedActiveColor = selectedColor ?: activeColor
+    val resolvedActiveTextColor = if (selectedColor != null && activeColor == BlackColor && activeTextColor == WhiteColor) {
+        BlackColor
+    } else {
+        activeTextColor
+    }
+
+    val currentBg = if (selected) resolvedActiveColor else inactiveColor
+    val currentText = if (selected) resolvedActiveTextColor else inactiveTextColor
+
+    val shadowOffset by animateDpAsState(
+        targetValue = if (isPressed) 0.dp else 2.dp,
+        animationSpec = spring(stiffness = Spring.StiffnessHigh),
+        label = "pillShadow"
+    )
+
+    val effectiveSubtext = subtext ?: sublabel
+
+    Box(
+        modifier = modifier
+            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
+            .heightIn(min = 44.dp)
+            .selectable(
+                selected = selected,
+                role = Role.RadioButton,
+                onClick = {
+                    try {
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    } catch (_: Exception) {}
+                    onClick()
+                }
+            )
+            .offset(x = shadowOffset, y = shadowOffset)
+            .background(currentBg, shape)
+            .border(2.dp, BlackColor, shape)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = currentText,
+                    textAlign = TextAlign.Center
+                )
+                if (!badgeText.isNullOrEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (selected) WhiteColor else YellowColor,
+                                RoundedCornerShape(4.dp)
+                            )
+                            .border(1.dp, BlackColor, RoundedCornerShape(4.dp))
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = badgeText,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black,
+                            color = BlackColor
+                        )
+                    }
+                }
+            }
+            if (!effectiveSubtext.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = effectiveSubtext,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = currentText.copy(alpha = 0.8f),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun <T> NeobrutalistPillSelector(
+    options: List<T>,
+    selectedOption: T,
+    onOptionSelected: (T) -> Unit,
+    modifier: Modifier = Modifier,
+    labelProvider: (T) -> String = { it.toString() },
+    sublabelProvider: ((T) -> String)? = null,
+    badgeProvider: ((T) -> String)? = null,
+    activeColor: Color = BlackColor,
+    activeTextColor: Color = WhiteColor,
+    inactiveColor: Color = WhiteColor,
+    inactiveTextColor: Color = BlackColor
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        options.forEach { option ->
+            val isSelected = option == selectedOption
+            OptionPill(
+                label = labelProvider(option),
+                sublabel = sublabelProvider?.invoke(option),
+                badgeText = badgeProvider?.invoke(option),
+                selected = isSelected,
+                onClick = { onOptionSelected(option) },
+                activeColor = activeColor,
+                activeTextColor = activeTextColor,
+                inactiveColor = inactiveColor,
+                inactiveTextColor = inactiveTextColor,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+fun DocumentSummaryHeader(
+    filename: String,
+    pageCount: Int,
+    modifier: Modifier = Modifier,
+    fileSizeString: String? = null,
+    backgroundColor: Color = CreamColor,
+    onRemoveClick: (() -> Unit)? = null
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = backgroundColor,
+        cornerRadius = 10.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .background(YellowColor, RoundedCornerShape(8.dp))
+                        .border(2.dp, BlackColor, RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "📄",
+                        fontSize = 20.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = filename,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        color = BlackColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        ToolBadge(
+                            text = if (pageCount == 1) "1 PAGE" else "$pageCount PAGES",
+                            backgroundColor = WhiteColor
+                        )
+                        if (!fileSizeString.isNullOrEmpty()) {
+                            ToolBadge(
+                                text = fileSizeString,
+                                backgroundColor = WhiteColor
+                            )
+                        }
+                    }
+                }
+            }
+            if (onRemoveClick != null) {
+                IconButton(
+                    onClick = onRemoveClick,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .background(WhiteColor, RoundedCornerShape(8.dp))
+                        .border(1.5.dp, BlackColor, RoundedCornerShape(8.dp))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Remove file",
+                        tint = BlackColor,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DocumentSummaryHeader(
+    fileName: String,
+    pageCount: Int,
+    fileSize: String? = null,
+    accentColor: Color = CreamColor,
+    modifier: Modifier = Modifier,
+    onRemoveClick: (() -> Unit)? = null
+) {
+    DocumentSummaryHeader(
+        filename = fileName,
+        pageCount = pageCount,
+        modifier = modifier,
+        fileSizeString = fileSize,
+        backgroundColor = accentColor,
+        onRemoveClick = onRemoveClick
+    )
+}
+
+@Composable
+fun PageThumbnailGrid(
+    thumbnails: List<Bitmap>,
+    modifier: Modifier = Modifier,
+    selectedPages: Set<Int>? = null,
+    onPageClick: ((Int) -> Unit)? = null,
+    onDeletePage: ((Int) -> Unit)? = null,
+    pageLabelProvider: ((Int) -> String)? = null
+) {
+    if (thumbnails.isEmpty()) return
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        val rows = (thumbnails.indices step 2).toList()
+        for (startIndex in rows) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                val index1 = startIndex
+                val isSelected1 = selectedPages?.contains(index1) ?: false
+                ThumbnailCard(
+                    pageIndex = index1,
+                    bitmap = thumbnails[index1],
+                    label = pageLabelProvider?.invoke(index1) ?: "Page ${index1 + 1}",
+                    isSelected = isSelected1,
+                    onClick = onPageClick?.let { { it(index1) } },
+                    onDelete = onDeletePage?.let { { it(index1) } },
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (startIndex + 1 < thumbnails.size) {
+                    val index2 = startIndex + 1
+                    val isSelected2 = selectedPages?.contains(index2) ?: false
+                    ThumbnailCard(
+                        pageIndex = index2,
+                        bitmap = thumbnails[index2],
+                        label = pageLabelProvider?.invoke(index2) ?: "Page ${index2 + 1}",
+                        isSelected = isSelected2,
+                        onClick = onPageClick?.let { { it(index2) } },
+                        onDelete = onDeletePage?.let { { it(index2) } },
+                        modifier = Modifier.weight(1f)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ThumbnailCard(
+    pageIndex: Int,
+    bitmap: Bitmap,
+    label: String,
+    modifier: Modifier = Modifier,
+    isSelected: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null
+) {
+    BrutalistShadowBox(
+        modifier = modifier,
+        backgroundColor = if (isSelected) YellowColor.copy(alpha = 0.25f) else WhiteColor,
+        cornerRadius = 10.dp,
+        onClick = onClick,
+        onClickLabel = "Select $label"
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+                    .background(Color(0xFFEEEEEE), RoundedCornerShape(6.dp))
+                    .border(1.dp, BlackColor, RoundedCornerShape(6.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Image(
+                    bitmap = bitmap.asImageBitmap(),
+                    contentDescription = label,
+                    modifier = Modifier.fillMaxSize()
+                )
+                if (onDelete != null) {
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(28.dp)
+                            .background(RedColor, RoundedCornerShape(4.dp))
+                            .border(1.dp, BlackColor, RoundedCornerShape(4.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete $label",
+                            tint = WhiteColor,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BlackColor
+                )
+                if (isSelected) {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .background(MintColor, RoundedCornerShape(9.dp))
+                            .border(1.dp, BlackColor, RoundedCornerShape(9.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = "Selected",
+                            tint = BlackColor,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ResultsHeroBanner(
+    title: String = "✓ Conversion complete!",
+    subtitle: String? = "Your files are ready to download.",
+    primaryButtonText: String = "Download All as ZIP 📦",
+    onPrimaryClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    secondaryButtonText: String? = "Convert another file ↺",
+    onSecondaryClick: (() -> Unit)? = null,
+    bannerColor: Color = MintColor
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = bannerColor,
+        cornerRadius = 16.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Black,
+                color = BlackColor,
+                textAlign = TextAlign.Center
+            )
+            if (!subtitle.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = BlackColor.copy(alpha = 0.85f),
+                    textAlign = TextAlign.Center
+                )
+            }
+            Spacer(modifier = Modifier.height(14.dp))
+            BrutalistButton(
+                text = primaryButtonText,
+                onClick = onPrimaryClick,
+                backgroundColor = YellowColor,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (!secondaryButtonText.isNullOrEmpty() && onSecondaryClick != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Box(
+                    modifier = Modifier
+                        .clickable(
+                            role = Role.Button,
+                            onClickLabel = secondaryButtonText,
+                            onClick = onSecondaryClick
+                        )
+                        .padding(vertical = 4.dp, horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = secondaryButtonText,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BlackColor,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ResultsHeroBanner(
+    title: String,
+    subtitle: String?,
+    primaryCtaText: String,
+    onPrimaryCta: () -> Unit,
+    onReset: () -> Unit,
+    accentColor: Color,
+    modifier: Modifier = Modifier
+) {
+    ResultsHeroBanner(
+        title = title,
+        subtitle = subtitle,
+        primaryButtonText = primaryCtaText,
+        onPrimaryClick = onPrimaryCta,
+        secondaryButtonText = "Convert another file ↺",
+        onSecondaryClick = onReset,
+        bannerColor = accentColor,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun IndividualOutputCard(
+    pageIndex: Int,
+    bitmap: Bitmap?,
+    label: String,
+    onSaveClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    onShareClick: (() -> Unit)? = null,
+    buttonText: String = "Download"
+) {
+    BrutalistShadowBox(
+        modifier = modifier.fillMaxWidth(),
+        backgroundColor = WhiteColor,
+        cornerRadius = 10.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(54.dp, 70.dp)
+                        .background(Color(0xFFEEEEEE), RoundedCornerShape(6.dp))
+                        .border(1.5.dp, BlackColor, RoundedCornerShape(6.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (bitmap != null) {
+                        Image(
+                            bitmap = bitmap.asImageBitmap(),
+                            contentDescription = label,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    } else {
+                        Text(
+                            text = "🖼️",
+                            fontSize = 24.sp
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = label,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        color = BlackColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Page ${pageIndex + 1}",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = BlackColor.copy(alpha = 0.6f)
+                    )
+                }
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (onShareClick != null) {
+                    IconButton(
+                        onClick = onShareClick,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .background(CreamColor, RoundedCornerShape(8.dp))
+                            .border(1.5.dp, BlackColor, RoundedCornerShape(8.dp))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Share $label",
+                            tint = BlackColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                BrutalistShadowBox(
+                    backgroundColor = YellowColor,
+                    cornerRadius = 8.dp,
+                    onClick = onSaveClick,
+                    borderWidth = 1.5.dp
+                ) {
+                    Text(
+                        text = buttonText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black,
+                        color = BlackColor,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ToolScreenTemplate(
+    title: String,
+    desc: String,
+    badgeLabel: String,
+    onBack: () -> Unit,
+    badgeColor: androidx.compose.ui.graphics.Color,
+    content: @Composable () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(WhiteColor)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(64.dp)
+                .background(WhiteColor)
+                .bottomBorder(2.dp, BlackColor)
+                .padding(horizontal = 16.dp)
+        ) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(WhiteColor, RoundedCornerShape(6.dp))
+                    .border(2.dp, BlackColor, RoundedCornerShape(6.dp))
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Navigate back",
+                    tint = BlackColor
+                )
+            }
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = BlackColor,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp),
+                textAlign = TextAlign.Center,
+                letterSpacing = (-0.02).em
+            )
+            ToolBadge(text = badgeLabel, backgroundColor = badgeColor)
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            BrutalistShadowBox(
+                modifier = Modifier.fillMaxWidth(),
+                backgroundColor = badgeColor,
+                cornerRadius = 16.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = title,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        color = BlackColor,
+                        letterSpacing = (-0.02).em,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                    Text(
+                        text = desc,
+                        fontSize = 12.sp,
+                        color = Color(0xFF333333),
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+            content()
         }
     }
 }
@@ -755,52 +1424,7 @@ fun SelectedFileCard(
 /**
  * State 3: Neobrutalist option pill for settings. Meets WCAG 2.1 AA touch target standards (>= 48dp).
  */
-@Composable
-fun OptionPill(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    subtext: String? = null,
-    selectedColor: Color = FlippYellow
-) {
-    val backgroundColor = if (selected) selectedColor else WhiteColor
-    val shape = RoundedCornerShape(8.dp)
 
-    Box(
-        modifier = modifier
-            .selectable(
-                selected = selected,
-                role = Role.RadioButton,
-                onClick = onClick
-            )
-            .background(backgroundColor, shape)
-            .border(2.dp, BlackColor, shape)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = label,
-                fontSize = 13.sp,
-                fontWeight = if (selected) FontWeight.Black else FontWeight.Bold,
-                color = BlackColor
-            )
-            if (subtext != null) {
-                Text(
-                    text = subtext,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = if (selected) BlackColor.copy(alpha = 0.8f) else Color(0xFF777777)
-                )
-            }
-        }
-    }
-}
-
-/**
- * State 3: Horizontally grouped pill selector.
- */
 @Composable
 fun <T> NeobrutalistPillGroup(
     title: String,
@@ -1406,5 +2030,85 @@ fun InteractivePageThumbnailCard(
                 }
             }
         }
+    }
+}
+
+fun loadPdfThumbnails(context: Context, pdfUri: Uri, maxPages: Int = 4): List<Bitmap> {
+    val bitmaps = mutableListOf<Bitmap>()
+    try {
+        context.contentResolver.openFileDescriptor(pdfUri, "r")?.use { pfd ->
+            val renderer = try {
+                PdfRenderer(pfd)
+            } catch (e: SecurityException) {
+                return emptyList()
+            }
+            try {
+                val pagesToRender = minOf(renderer.pageCount, maxPages)
+                for (i in 0 until pagesToRender) {
+                    val page = renderer.openPage(i)
+                    try {
+                        val width = (page.width / 2).coerceAtLeast(1)
+                        val height = (page.height / 2).coerceAtLeast(1)
+                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        bitmaps.add(bitmap)
+                    } finally {
+                        page.close()
+                    }
+                }
+            } finally {
+                renderer.close()
+            }
+        }
+    } catch (e: Exception) {
+        AppLogger.e("UiComponents", "Error loading PDF thumbnails", e)
+    }
+    return bitmaps
+}
+
+fun loadPdfPageBitmap(context: Context, pdfUri: Uri, pageIndex: Int): Bitmap? {
+    return try {
+        context.contentResolver.openFileDescriptor(pdfUri, "r")?.use { pfd ->
+            val renderer = try {
+                PdfRenderer(pfd)
+            } catch (e: SecurityException) {
+                return null
+            }
+            try {
+                if (pageIndex in 0 until renderer.pageCount) {
+                    val page = renderer.openPage(pageIndex)
+                    try {
+                        val width = (page.width / 2).coerceAtLeast(1)
+                        val height = (page.height / 2).coerceAtLeast(1)
+                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                        bitmap
+                    } finally {
+                        page.close()
+                    }
+                } else {
+                    null
+                }
+            } finally {
+                renderer.close()
+            }
+        }
+    } catch (e: Exception) {
+        AppLogger.e("UiComponents", "Error rendering PDF page", e)
+        null
+    }
+}
+
+fun loadImageThumbnail(context: Context, uri: Uri): Bitmap? {
+    return try {
+        val options = BitmapFactory.Options().apply {
+            inSampleSize = 8
+        }
+        context.contentResolver.openInputStream(uri)?.use { inputStream ->
+            BitmapFactory.decodeStream(inputStream, null, options)
+        }
+    } catch (e: Exception) {
+        AppLogger.e("UiComponents", "Error loading image thumbnail", e)
+        null
     }
 }
