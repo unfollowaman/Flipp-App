@@ -142,3 +142,72 @@ Flipp adheres to WCAG 2.1 AA accessibility guidelines, specifically tailored for
 - **Vertical Scrolling:** All tool screens wrap their main column with `.verticalScroll(rememberScrollState())` to prevent layout clipping on smaller screens or when virtual keyboards appear.
 - **Dynamic Text Scaling:** Typography sizes are defined in `sp` and layout dimensions in `dp`, respecting user system font scaling settings up to 200%.
 - **Edge-to-Edge Support:** The application calls `enableEdgeToEdge()` in `MainActivity.onCreate()` and handles system window insets via Compose's `Scaffold(innerPadding)`.
+
+---
+
+## 8. Reusable Feature-Page Architecture & 5 Application States
+
+All 16 feature pages follow a standardized, tactile Neobrutalist architecture powered by reusable Compose primitives in `UiComponents.kt`:
+
+### 8.1. Minimalist Android Principles
+- **Clean White Primary Background:** Pure `#FFFFFF` canvas providing high contrast and generous whitespace.
+- **Controlled Color Accents:** Flipp yellow (`FlippYellow = #F8E642`) as the hero accent, with tool-specific badges (Sky Blue, Mint, Pink, Amber, Red).
+- **High-Contrast Black Typography:** Crisp `#0D0D0D` typography across titles, subtitles, and labels.
+- **Physical Neobrutalist Geometry:** Restrained 2dp black borders and 4dp solid offset drop shadows (`offset(4.dp, 4.dp)`).
+- **On-Device Reassurance:** Subtle privacy pill on every feature screen ("100% on-device • Never leaves your phone") reinforcing zero-network privacy.
+
+### 8.2. Five Core Application States
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          FLIPP 5-STAGE LIFECYCLE                            │
+│                                                                             │
+│  ┌───────────────┐   ┌───────────────────────┐   ┌───────────────────────┐  │
+│  │ 1. IDLE/EMPTY │   │ 2. FILE SELECTED      │   │ 3. SETTINGS & OPTIONS │  │
+│  │ - DropZone    │──▶│ - SelectedFileCard    │──▶│ - OptionPills / Grid  │──┐
+│  │ - HowItWorks  │   │ - Page count / size   │   │ - CollapsibleSettings │  │
+│  └───────────────┘   └───────────────────────┘   └───────────────────────┘  │
+│                                                                             │
+│                      ┌───────────────────────┐   ┌───────────────────────┐  │
+│                      │ 5. COMPLETED / OUTPUT │   │ 4. PROCESSING         │  │
+│                      │ - CompletedHeroCard   │◀──│ - ProcessingStageCard │◀─┘
+│                      │ - Primary Save Action │   │ - StageProgressBar    │  │
+│                      │ - Individual Cards    │   │ - Privacy notice      │  │
+│                      └───────────────────────┘   └───────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+1. **State 1: Empty / Idle:**
+   - Handled via `SingleFileDropZone` or `DropZone`.
+   - Accompanied by `FeatureHowItWorksCard` providing educational 3-step guidance.
+2. **State 2: File Selected:**
+   - Handled via `SelectedFileCard` presenting filename, file size, page count, and accessible change button.
+   - For multi-file tools (Merge PDF, Images to PDF), `MultiFileQueueCard` supports reordering (up/down) and deletion.
+3. **State 3: Settings / Options:**
+   - Progressive disclosure via `CollapsibleSettingsCard`.
+   - Option selection via `OptionPill` and `NeobrutalistPillGroup` using `Modifier.selectable(role = Role.RadioButton)`.
+   - Visual position selection via `PositionGridSelector`.
+   - Prominent primary action button via `BrutalistButton` with Flipp Yellow or Mint accent.
+4. **State 4: Processing:**
+   - Handled via `ProcessingStageCard` wrapping `StageProgressBar` with animated progress (0f..1f), current step counter, and lock privacy reassurance.
+5. **State 5: Completed / Output:**
+   - Handled via `CompletedHeroCard` featuring celebration header, summary details, primary export CTA (SAF `CreateDocument`), and reset action.
+   - Multi-page outputs (PDF to PNG, Split PDF) leverage `IndividualOutputCard` with rendered thumbnail bitmaps and individual save triggers.
+- **Error State:**
+   - Handled via `ErrorCard` with high-contrast alert styling, clear failure explanation, and retry/reset action.
+
+### 8.3. Core Architecture Composables Reference
+| Composable Name | Purpose & Lifecycle State | Key Props & Parameters |
+| :--- | :--- | :--- |
+| `FeaturePageScaffold` | Top-level frame for all 16 tools | `title`, `desc`, `badgeLabel`, `badgeColor`, `onBack`, `content` |
+| `SelectedFileCard` | State 2: Document summary card | `fileName`, `fileSizeStr`, `pageCount`, `previewBitmap`, `onChangeFile` |
+| `OptionPill` | State 3: Neobrutalist option toggle | `label`, `subtext`, `selected`, `selectedColor`, `onClick` |
+| `NeobrutalistPillGroup` | State 3: Grouped option pills | `title`, `options`, `selectedOption`, `labelProvider`, `onOptionSelected` |
+| `CollapsibleSettingsCard` | State 3: Expandable settings drawer | `title`, `initiallyExpanded`, `content` |
+| `PositionGridSelector` | State 3: Quadrant position selector | `selectedPosition`, `onPositionSelected`, `positions` |
+| `FeatureHowItWorksCard` | State 1: Explanatory 3-step guide | `step1`, `step2`, `step3` |
+| `ProcessingStageCard` | State 4: Progress and status card | `progress`, `statusText`, `stepDetails` |
+| `CompletedHeroCard` | State 5: Celebration banner & export | `title`, `subtitle`, `primaryButtonText`, `onPrimaryClick`, `onSecondaryClick` |
+| `IndividualOutputCard` | State 5: Single page output item | `title`, `bitmap`, `onSave` |
+| `MultiFileQueueCard` | Multi-file queue item with reorder | `index`, `fileName`, `onMoveUp`, `onMoveDown`, `onRemove` |
+| `InteractivePageThumbnailCard`| Page management & deletion toggle | `pageIndex`, `bitmap`, `isMarkedForDeletion`, `onDeleteToggle` |
+| `ErrorCard` | Failure & error handling card | `errorMessage`, `onDismissOrRetry`, `retryButtonText` |

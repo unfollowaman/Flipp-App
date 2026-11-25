@@ -1,10 +1,10 @@
 # FEATURE_PAGES_REDESIGN_PLAN.md — Flipp Mobile Feature Pages Redesign
 
-> **Role & Authority:** Lead Mobile Product & UI/UX Designer  
-> **Target Project:** Flipp Android (`Flipp-App`)  
-> **Visual Benchmark:** High-fidelity captures in [`Web Screenshots/`](file:///E:/Antigravity/Projects/Flipp-App/Web%20Screenshots)  
-> **Date:** November 2026  
-> **Status:** Approved for Phased Implementation  
+> **Role & Authority:** Lead Mobile Product & UI/UX Designer<br>
+> **Target Project:** Flipp Android (`Flipp-App`)<br>
+> **Visual Benchmark:** High-fidelity captures in [`Web Screenshots/`](file:///E:/Antigravity/Projects/Flipp-App/Web%20Screenshots)<br>
+> **Date:** November 2026<br>
+> **Status:** Approved for Phased Implementation
 
 ---
 
@@ -41,7 +41,7 @@ Before redesigning individual screens, the core Compose component library (`UiCo
 
 ### 1.1. `NeobrutalistPillSelector`
 - **Replaces:** Material3 radio buttons and standard dropdowns.
-- **Visuals:** Horizontal or wrapped row of solid pill buttons. 
+- **Visuals:** Horizontal or wrapped row of solid pill buttons.
   - *Inactive:* White background, 2dp `#0D0D0D` border, subtle 2dp offset shadow, medium text.
   - *Active:* Solid `#0D0D0D` background with White text (or Saturated Accent Color: Yellow/Pink/Mint with Black text).
   - *Subtext Pill:* Support for secondary badge descriptors (e.g. `PNG — Best quality` vs `JPG — Smaller size`).

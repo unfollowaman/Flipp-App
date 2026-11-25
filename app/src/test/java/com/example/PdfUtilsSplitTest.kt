@@ -88,4 +88,15 @@ class PdfUtilsSplitTest {
         // This should not throw an exception
         PdfUtils.splitPdf(context, uri, 1, 2, outputStream)
     }
+
+    @Test
+    fun testSplitPdf_nonExistentUri_throwsException() {
+        val context = RuntimeEnvironment.getApplication()
+        val nonExistentUri = Uri.parse("file:///nonexistent/dummy.pdf")
+        val outputStream = ByteArrayOutputStream()
+
+        assertThrows(Exception::class.java) {
+            PdfUtils.splitPdf(context, nonExistentUri, 1, 2, outputStream)
+        }
+    }
 }

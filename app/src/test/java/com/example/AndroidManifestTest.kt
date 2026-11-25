@@ -32,4 +32,13 @@ class AndroidManifestTest {
     val activityInfo = context.packageManager.getActivityInfo(componentName, 0)
     assertTrue("MainActivity must be exported so the system launcher can launch the app", activityInfo.exported)
   }
+
+  @Test
+  fun `zero network permissions in manifest`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    val packageInfo = context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.GET_PERMISSIONS)
+    val permissions = packageInfo.requestedPermissions ?: emptyArray()
+    assertFalse("Manifest must not declare INTERNET permission", permissions.contains("android.permission.INTERNET"))
+    assertFalse("Manifest must not declare ACCESS_NETWORK_STATE permission", permissions.contains("android.permission.ACCESS_NETWORK_STATE"))
+  }
 }

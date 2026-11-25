@@ -1,45 +1,18 @@
 package com.example
 
-import android.content.Context
-import android.graphics.Bitmap
 import android.net.Uri
-import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -50,76 +23,63 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.example.ui.theme.*
-import java.io.File
-import java.io.FileOutputStream
+import com.example.ui.theme.BlackColor
+import com.example.ui.theme.MintColor
+import com.example.ui.theme.WhiteColor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileOutputStream
 
 @Composable
 fun MergePdfScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
+    // 1: Idle, 2: Files Selected & Queue, 3: Processing, 4: Completed, 5: Error
     var stage by rememberSaveable { mutableIntStateOf(1) }
-    val selectedUris = remember { mutableStateListOf<Uri>() }
-    val pdfThumbnails = remember { mutableStateMapOf<Uri, Bitmap?>() }
-    val pdfNames = remember { mutableStateMapOf<Uri, String>() }
+    val selectedPdfUris = remember { mutableStateListOf<Uri>() }
     val pdfPageCounts = remember { mutableStateMapOf<Uri, Int>() }
 
-    var isProcessing by remember { mutableStateOf(false) }
     var progressVal by remember { mutableFloatStateOf(0f) }
     var progressLabel by remember { mutableStateOf("") }
-    var tempMergedFile by remember { mutableStateOf<File?>(null) }
+    var errorMessage by remember { mutableStateOf("") }
 
-    fun queryName(uri: Uri): String {
-        return try {
-            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (cursor.moveToFirst() && nameIndex != -1) {
-                    cursor.getString(nameIndex)
-                } else null
-            } ?: uri.lastPathSegment ?: "document.pdf"
-        } catch (_: Exception) {
-            uri.lastPathSegment ?: "document.pdf"
+    var tempPdfFile by remember { mutableStateOf<File?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            tempPdfFile?.delete()
         }
     }
 
-    val pdfPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents(),
+    val filePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
         onResult = { uris ->
             if (uris.isNotEmpty()) {
-                uris.forEach { uri ->
-                    if (!selectedUris.contains(uri)) {
-                        selectedUris.add(uri)
-                        pdfNames[uri] = queryName(uri)
-                        coroutineScope.launch(Dispatchers.IO) {
-                            val pages = PdfUtils.getPdfPageCount(context, uri)
-                            val thumbs = loadPdfThumbnails(context, uri, maxPages = 1)
-                            withContext(Dispatchers.Main) {
-                                pdfPageCounts[uri] = pages
-                                pdfThumbnails[uri] = thumbs.firstOrNull()
+                selectedPdfUris.addAll(uris)
+                stage = 2
+
+                coroutineScope.launch(Dispatchers.IO) {
+                    uris.forEach { uri ->
+                        if (!pdfPageCounts.containsKey(uri)) {
+                            try {
+                                val count = PdfUtils.getPdfPageCount(context, uri)
+                                pdfPageCounts[uri] = count
+                            } catch (_: Exception) {
+                                pdfPageCounts[uri] = 0
                             }
                         }
                     }
                 }
-                stage = 2
+            } else if (selectedPdfUris.isEmpty()) {
+                Toast.makeText(context, "Please select a PDF file.", Toast.LENGTH_SHORT).show()
             }
         }
     )
@@ -127,18 +87,20 @@ fun MergePdfScreen(onBack: () -> Unit) {
     val pdfSaver = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/pdf"),
         onResult = { uri ->
-            if (uri != null && tempMergedFile != null) {
+            if (uri != null && tempPdfFile != null) {
                 coroutineScope.launch(Dispatchers.IO) {
                     try {
                         context.contentResolver.openOutputStream(uri)?.use { out ->
-                            tempMergedFile!!.inputStream().copyTo(out)
+                            tempPdfFile!!.inputStream().use { input ->
+                                input.copyTo(out)
+                            }
                         }
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "Merged PDF saved successfully!", Toast.LENGTH_SHORT).show()
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "Error saving merged PDF: ${e.message}", Toast.LENGTH_LONG).show()
+                            Toast.makeText(context, "Error saving PDF: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                     }
                 }
@@ -146,374 +108,173 @@ fun MergePdfScreen(onBack: () -> Unit) {
         }
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundColor)
+    FeaturePageScaffold(
+        title = "Merge PDFs",
+        desc = "Combine multiple PDF files into one clean document in the order you choose.",
+        badgeLabel = "MERGE",
+        onBack = onBack,
+        badgeColor = MintColor
     ) {
-        // App Bar
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp)
-                .background(WhiteColor)
-                .border(2.dp, BlackColor)
-                .padding(horizontal = 16.dp)
-        ) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(WhiteColor, RoundedCornerShape(8.dp))
-                    .border(2.dp, BlackColor, RoundedCornerShape(8.dp))
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Navigate back",
-                    tint = BlackColor
-                )
-            }
-            Text(
-                text = "Merge PDF",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black,
-                color = BlackColor,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp),
-                textAlign = TextAlign.Center,
-                letterSpacing = (-0.02).em
-            )
-            ToolBadge(text = "MERGE", backgroundColor = PinkColor)
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Stage 1: File Selection
-            if (stage == 1) {
-                BrutalistShadowBox(
-                    modifier = Modifier.fillMaxWidth(),
-                    backgroundColor = PinkColor,
-                    cornerRadius = 16.dp
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "Merge PDF",
-                            fontSize = 24.sp,
-                            fontWeight = FontWeight.Black,
-                            color = BlackColor,
-                            letterSpacing = (-0.02).em
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Combine multiple PDF documents into a single organized file in any page order you choose.",
-                            fontSize = 13.sp,
-                            color = Color(0xFF222222),
-                            lineHeight = 18.sp
-                        )
-                    }
-                }
-
-                // DropZone
+        when (stage) {
+            1 -> {
+                // State 1: Idle
                 DropZone(
-                    onBrowseClick = { pdfPickerLauncher.launch("application/pdf") },
-                    prompt = "Drop your PDF files here or browse files",
-                    badgeColor = PinkColor
+                    onBrowseClick = { filePicker.launch(arrayOf("application/pdf")) },
+                    prompt = "Combine multiple PDFs into one.",
+                    badgeColor = MintColor
                 )
 
-                // 3-step Guide Card
-                BrutalistShadowBox(
-                    modifier = Modifier.fillMaxWidth(),
-                    backgroundColor = CreamColor,
-                    cornerRadius = 16.dp
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Text(
-                            text = "How to merge PDF files online",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Black,
-                            color = BlackColor,
-                            modifier = Modifier.padding(bottom = 12.dp)
-                        )
-                        StepItem("1", "Upload your files", "Select two or more PDF files from your device.", PinkColor)
-                        Spacer(modifier = Modifier.height(10.dp))
-                        StepItem("2", "Reorder documents", "Use the order controls to arrange PDFs in your preferred sequence.", YellowColor)
-                        Spacer(modifier = Modifier.height(10.dp))
-                        StepItem("3", "Merge & download", "Combine files into one unified document with zero cloud upload.", MintColor)
-                    }
-                }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                FeatureHowItWorksCard(
+                    step1 = "Select two or more PDF files from your device",
+                    step2 = "Arrange documents into desired sequence",
+                    step3 = "Merge and download unified document directly"
+                )
             }
 
-            // Stage 2: Loaded Queue & Controls
-            if (stage == 2) {
+            2 -> {
+                // State 2: Selected Files & Queue
                 Text(
-                    text = "${selectedUris.size} files selected",
-                    fontSize = 18.sp,
+                    text = "Sequence Order (${selectedPdfUris.size} PDFs)",
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Black,
-                    color = BlackColor
+                    color = BlackColor,
+                    modifier = Modifier.padding(bottom = 4.dp)
                 )
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    BrutalistButton(
-                        text = "+ Add files",
-                        onClick = { pdfPickerLauncher.launch("application/pdf") },
-                        backgroundColor = WhiteColor,
-                        modifier = Modifier.weight(1f)
-                    )
-                    BrutalistButton(
-                        text = "Merge PDFs →",
-                        onClick = {
-                            if (selectedUris.size < 2) {
-                                Toast.makeText(context, "Please select at least 2 PDFs to merge", Toast.LENGTH_SHORT).show()
-                                return@BrutalistButton
-                            }
-                            isProcessing = true
-                            progressVal = 0.05f
-                            progressLabel = "Starting merge..."
-                            coroutineScope.launch(Dispatchers.IO) {
-                                try {
-                                    val tempFile = File.createTempFile("merged_", ".pdf", context.cacheDir)
-                                    tempMergedFile = tempFile
-                                    FileOutputStream(tempFile).use { fos ->
-                                        PdfUtils.mergePdfs(
-                                            context = context,
-                                            pdfUris = selectedUris,
-                                            outputStream = fos
-                                        ) { current, total ->
-                                            progressVal = current.toFloat() / total
-                                            progressLabel = "Merging file $current of $total..."
-                                        }
-                                    }
-                                    withContext(Dispatchers.Main) {
-                                        isProcessing = false
-                                        stage = 3
-                                    }
-                                } catch (e: Exception) {
-                                    withContext(Dispatchers.Main) {
-                                        isProcessing = false
-                                        Toast.makeText(context, "Merge failed: ${e.message}", Toast.LENGTH_LONG).show()
-                                    }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    selectedPdfUris.forEachIndexed { index, uri ->
+                        val pages = pdfPageCounts[uri]
+                        val pageStr = if (pages != null && pages > 0) "$pages pages" else "Reading pages..."
+                        val sizeStr = FileUtils.getFileSizeString(context, uri)
+                        val metaStr = if (sizeStr != null) "$pageStr • $sizeStr" else pageStr
+
+                        MultiFileQueueCard(
+                            index = index,
+                            fileName = FileUtils.getFileName(context, uri),
+                            fileSizeStr = metaStr,
+                            canMoveUp = index > 0,
+                            canMoveDown = index < selectedPdfUris.size - 1,
+                            onMoveUp = if (index > 0) {
+                                {
+                                    val cur = selectedPdfUris[index]
+                                    selectedPdfUris.removeAt(index)
+                                    selectedPdfUris.add(index - 1, cur)
+                                }
+                            } else null,
+                            onMoveDown = if (index < selectedPdfUris.size - 1) {
+                                {
+                                    val cur = selectedPdfUris[index]
+                                    selectedPdfUris.removeAt(index)
+                                    selectedPdfUris.add(index + 1, cur)
+                                }
+                            } else null,
+                            onRemove = {
+                                selectedPdfUris.removeAt(index)
+                                if (selectedPdfUris.isEmpty()) {
+                                    stage = 1
                                 }
                             }
-                        },
-                        backgroundColor = PinkColor,
-                        modifier = Modifier.weight(1f)
-                    )
+                        )
+                    }
                 }
 
-                if (isProcessing) {
-                    StageProgressBar(progress = progressVal, label = progressLabel)
-                }
-
-                Text(
-                    text = "Drag cards to reorder PDFs",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF666666)
+                BrutalistButton(
+                    text = "+ Add More PDFs",
+                    onClick = { filePicker.launch(arrayOf("application/pdf")) },
+                    backgroundColor = WhiteColor,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
-                // 2-column Grid of PDF cards
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(380.dp),
-                    contentPadding = PaddingValues(bottom = 8.dp)
-                ) {
-                    itemsIndexed(selectedUris) { index, uri ->
-                        val thumb = pdfThumbnails[uri]
-                        val name = pdfNames[uri] ?: "document.pdf"
-                        val pageCount = pdfPageCounts[uri] ?: 1
+                BrutalistButton(
+                    text = "Merge PDFs Now →",
+                    onClick = {
+                        if (selectedPdfUris.size < 2) {
+                            Toast.makeText(context, "Please select at least 2 PDFs to merge.", Toast.LENGTH_SHORT).show()
+                            return@BrutalistButton
+                        }
 
-                        BrutalistShadowBox(
-                            modifier = Modifier.fillMaxWidth(),
-                            backgroundColor = WhiteColor,
-                            cornerRadius = 12.dp
-                        ) {
-                            Column {
-                                // Top Header Bar with yellow index badge & close
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(YellowColor)
-                                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = "${index + 1}",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = BlackColor
-                                    )
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        if (index > 0) {
-                                            IconButton(
-                                                onClick = {
-                                                    val temp = selectedUris[index]
-                                                    selectedUris[index] = selectedUris[index - 1]
-                                                    selectedUris[index - 1] = temp
-                                                },
-                                                modifier = Modifier.size(24.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.KeyboardArrowUp,
-                                                    contentDescription = "Move PDF up",
-                                                    tint = BlackColor
-                                                )
-                                            }
-                                        }
-                                        if (index < selectedUris.size - 1) {
-                                            IconButton(
-                                                onClick = {
-                                                    val temp = selectedUris[index]
-                                                    selectedUris[index] = selectedUris[index + 1]
-                                                    selectedUris[index + 1] = temp
-                                                },
-                                                modifier = Modifier.size(24.dp)
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                                    contentDescription = "Move PDF down",
-                                                    tint = BlackColor
-                                                )
-                                            }
-                                        }
-                                        IconButton(
-                                            onClick = {
-                                                selectedUris.removeAt(index)
-                                                if (selectedUris.isEmpty()) stage = 1
-                                            },
-                                            modifier = Modifier
-                                                .size(24.dp)
-                                                .background(RedColor, CircleShape)
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Remove PDF $name",
-                                                tint = WhiteColor,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                        }
+                        stage = 3
+                        progressVal = 0.2f
+                        progressLabel = "Starting merge..."
+
+                        coroutineScope.launch(Dispatchers.IO) {
+                            try {
+                                val tempFile = File.createTempFile("merged_pdf_", ".pdf", context.cacheDir)
+                                tempPdfFile = tempFile
+
+                                FileOutputStream(tempFile).use { fos ->
+                                    PdfUtils.mergePdfs(
+                                        context = context,
+                                        pdfUris = selectedPdfUris.toList(),
+                                        outputStream = fos
+                                    ) { current, total ->
+                                        progressVal = current.toFloat() / total
+                                        progressLabel = "Merging PDF $current of $total... (${(progressVal * 100).toInt()}%)"
                                     }
                                 }
 
-                                // PDF Page 1 Preview
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(140.dp)
-                                        .background(BackgroundColor),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (thumb != null) {
-                                        Image(
-                                            bitmap = thumb.asImageBitmap(),
-                                            contentDescription = "Page 1 preview for $name",
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Fit
-                                        )
-                                    } else {
-                                        Text("PDF", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                                    }
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(context, "Merge complete!", Toast.LENGTH_SHORT).show()
+                                    stage = 4
                                 }
-
-                                // Bottom Details Bar
-                                Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                                    Text(
-                                        text = name,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = BlackColor,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Text(
-                                        text = "$pageCount ${if (pageCount == 1) "page" else "pages"}",
-                                        fontSize = 10.sp,
-                                        color = Color(0xFF666666)
-                                    )
+                            } catch (e: Exception) {
+                                tempPdfFile?.delete()
+                                tempPdfFile = null
+                                withContext(Dispatchers.Main) {
+                                    errorMessage = "Merge failed: ${e.message ?: "Invalid or protected PDF"}"
+                                    stage = 5
+                                    Toast.makeText(context, errorMessage, Toast.LENGTH_LONG).show()
                                 }
                             }
                         }
-                    }
-
-                    // Add more files card at the end of the grid
-                    item {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(210.dp)
-                                .border(2.dp, BlackColor, RoundedCornerShape(12.dp))
-                                .background(WhiteColor, RoundedCornerShape(12.dp))
-                                .clickable(role = Role.Button, onClickLabel = "Add more files") {
-                                    pdfPickerLauncher.launch("application/pdf")
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center,
-                                modifier = Modifier.padding(16.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .background(YellowColor, CircleShape)
-                                        .border(2.dp, BlackColor, CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Add,
-                                        contentDescription = "Add files icon",
-                                        tint = BlackColor
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = "Add more files",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = BlackColor
-                                )
-                                Text(
-                                    text = "Add PDF files",
-                                    fontSize = 11.sp,
-                                    color = Color(0xFF666666)
-                                )
-                            }
-                        }
-                    }
-                }
+                    },
+                    backgroundColor = MintColor,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
-            // Stage 3: Results
-            if (stage == 3) {
-                ResultsHeroBanner(
-                    title = "✓ PDFs Merged Successfully!",
-                    subtitle = "${selectedUris.size} documents unified into a single offline PDF.",
-                    primaryButtonText = "Save Merged PDF 📄",
+            3 -> {
+                // State 4: Processing
+                ProcessingStageCard(
+                    progress = progressVal,
+                    statusText = progressLabel.ifEmpty { "Merging PDF files..." },
+                    stepDetails = "Appending document streams locally with zero cloud transfer"
+                )
+            }
+
+            4 -> {
+                // State 5: Completed
+                CompletedHeroCard(
+                    title = "🎉 PDFs Merged Successfully!",
+                    subtitle = "All ${selectedPdfUris.size} documents have been combined into a unified PDF.",
+                    primaryButtonText = "Download Combined PDF 📁",
                     onPrimaryClick = { pdfSaver.launch("merged_document.pdf") },
-                    secondaryButtonText = "Merge more files ↺",
+                    secondaryButtonText = "Convert another file ↺",
                     onSecondaryClick = {
-                        selectedUris.clear()
-                        pdfThumbnails.clear()
-                        pdfNames.clear()
+                        selectedPdfUris.clear()
                         pdfPageCounts.clear()
-                        tempMergedFile = null
+                        tempPdfFile?.delete()
+                        tempPdfFile = null
                         stage = 1
-                    }
+                    },
+                    accentColor = MintColor
+                )
+            }
+
+            5 -> {
+                // Error State
+                ErrorCard(
+                    errorMessage = errorMessage.ifEmpty { "Failed to merge selected PDF files." },
+                    onDismissOrRetry = {
+                        if (selectedPdfUris.isNotEmpty()) {
+                            stage = 2
+                        } else {
+                            stage = 1
+                        }
+                    },
+                    retryButtonText = "Review PDF Queue"
                 )
             }
         }

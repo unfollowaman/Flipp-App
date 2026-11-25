@@ -23,6 +23,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -220,6 +221,204 @@ class UiComponentsAccessibilityTest {
         composeTestRule.onAllNodesWithText("Split PDF")
             .assertCountEquals(2) // Navbar title + Header card title
         composeTestRule.onNodeWithText("Extract specific page range into a separate file.")
+            .assertExists()
+    }
+
+    @Test
+    fun featurePageScaffoldRendersHeaderAndBackNavigation() {
+        composeTestRule.setContent {
+            FeaturePageScaffold(
+                title = "Compress PDF",
+                desc = "Reduce document size while preserving quality.",
+                badgeLabel = "COMPRESS",
+                onBack = {}
+            ) {
+                androidx.compose.material3.Text("Child Content")
+            }
+        }
+
+        // Title in Navbar and Header card
+        composeTestRule.onAllNodesWithText("Compress PDF")
+            .assertCountEquals(2)
+        composeTestRule.onNodeWithText("Reduce document size while preserving quality.")
+            .assertExists()
+        composeTestRule.onNodeWithText("100% on-device • Never leaves your phone")
+            .assertExists()
+        composeTestRule.onNodeWithText("Child Content")
+            .assertExists()
+        composeTestRule.onNodeWithTag("back_button")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun selectedFileCardRendersMetadataAndAccessibleChangeButton() {
+        composeTestRule.setContent {
+            SelectedFileCard(
+                fileName = "annual_report.pdf",
+                fileSizeStr = "2.4 MB",
+                pageCount = 12,
+                onChangeFile = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("annual_report.pdf")
+            .assertExists()
+        composeTestRule.onNodeWithText("12 pages")
+            .assertExists()
+        composeTestRule.onNodeWithText("• 2.4 MB")
+            .assertExists()
+        composeTestRule.onNodeWithTag("change_file_button")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun optionPillHasRadioButtonRoleAndSelectedSemantics() {
+        composeTestRule.setContent {
+            OptionPill(
+                label = "PNG",
+                subtext = "Best quality",
+                selected = true,
+                onClick = {}
+            )
+        }
+
+        composeTestRule.onNode(hasContentDescription("PNG", substring = true).or(androidx.compose.ui.test.hasText("PNG")))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            .assert(isSelected())
+        composeTestRule.onNodeWithText("Best quality")
+            .assertExists()
+    }
+
+    @Test
+    fun neobrutalistPillGroupRendersOptionsWithCorrectRoles() {
+        composeTestRule.setContent {
+            NeobrutalistPillGroup(
+                title = "PAGE SIZE",
+                options = listOf("A4", "LETTER"),
+                selectedOption = "A4",
+                onOptionSelected = {},
+                labelProvider = { it }
+            )
+        }
+
+        composeTestRule.onNodeWithText("PAGE SIZE")
+            .assertExists()
+        composeTestRule.onNodeWithText("A4")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+            .assert(isSelected())
+        composeTestRule.onNodeWithText("LETTER")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+    }
+
+    @Test
+    fun collapsibleSettingsCardTogglesContent() {
+        composeTestRule.setContent {
+            CollapsibleSettingsCard(title = "Advanced Options", initiallyExpanded = true) {
+                androidx.compose.material3.Text("Inner Option")
+            }
+        }
+
+        composeTestRule.onNodeWithText("Inner Option")
+            .assertExists()
+        composeTestRule.onNodeWithText("Advanced Options")
+            .performClick()
+        composeTestRule.onNodeWithText("Inner Option")
+            .assertDoesNotExist()
+    }
+
+    @Test
+    fun processingStageCardRendersProgressAndPrivacyNotice() {
+        composeTestRule.setContent {
+            ProcessingStageCard(
+                progress = 0.6f,
+                statusText = "Converting pages...",
+                stepDetails = "Page 3 of 5"
+            )
+        }
+
+        composeTestRule.onAllNodesWithText("Converting pages...")
+            .assertCountEquals(2) // Card header + Progress bar label
+        composeTestRule.onNodeWithText("Page 3 of 5")
+            .assertExists()
+        composeTestRule.onNodeWithText("Processing locally on your device")
+            .assertExists()
+    }
+
+    @Test
+    fun completedHeroCardRendersButtonsAndTitle() {
+        composeTestRule.setContent {
+            CompletedHeroCard(
+                title = "✓ Conversion complete!",
+                subtitle = "Output is ready.",
+                primaryButtonText = "Download All as ZIP 📦",
+                onPrimaryClick = {},
+                secondaryButtonText = "Convert Another ↺",
+                onSecondaryClick = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("✓ Conversion complete!")
+            .assertExists()
+        composeTestRule.onNodeWithText("Download All as ZIP 📦")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+        composeTestRule.onNodeWithText("Convert Another ↺")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun errorCardRendersErrorMessageAndRetry() {
+        composeTestRule.setContent {
+            ErrorCard(
+                errorMessage = "Invalid password provided",
+                onDismissOrRetry = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("⚠️ Operation Failed")
+            .assertExists()
+        composeTestRule.onNodeWithText("Invalid password provided")
+            .assertExists()
+        composeTestRule.onNodeWithText("Try Again")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun multiFileQueueCardRendersAccessibleControls() {
+        composeTestRule.setContent {
+            MultiFileQueueCard(
+                index = 0,
+                fileName = "invoice_1.pdf",
+                fileSizeStr = "500 KB",
+                onMoveUp = {},
+                onMoveDown = {},
+                onRemove = {}
+            )
+        }
+
+        composeTestRule.onNodeWithText("invoice_1.pdf")
+            .assertExists()
+        composeTestRule.onNodeWithText("500 KB")
+            .assertExists()
+        composeTestRule.onNode(hasContentDescription("Move item 1 up"))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+        composeTestRule.onNode(hasContentDescription("Remove item 1"))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+    }
+
+    @Test
+    fun interactivePageThumbnailCardRendersPageAndDeletionState() {
+        composeTestRule.setContent {
+            InteractivePageThumbnailCard(
+                pageIndex = 1,
+                bitmap = null,
+                isMarkedForDeletion = true,
+                onDeleteToggle = {}
+            )
+        }
+
+        composeTestRule.onAllNodesWithText("Page 2")
+            .assertCountEquals(2) // Thumbnail fallback + footer label
+        composeTestRule.onNodeWithText("✕ DELETED")
             .assertExists()
     }
 

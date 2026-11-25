@@ -1,5 +1,10 @@
 package com.example
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.pdf.PdfRenderer
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -12,17 +17,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,9 +47,36 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.*
 
+val PAGE_NUM_POSITIONS_LIST = listOf(
+    Pair("top-left", "Top Left"),
+    Pair("top-center", "Top Center"),
+    Pair("top-right", "Top Right"),
+    Pair("bottom-left", "Bottom Left"),
+    Pair("bottom-center", "Bottom Center"),
+    Pair("bottom-right", "Bottom Right")
+)
+
+val WATERMARK_POSITIONS_LIST = listOf(
+    Pair("top-left", "Top Left"),
+    Pair("top-center", "Top Center"),
+    Pair("top-right", "Top Right"),
+    Pair("center", "Center"),
+    Pair("bottom-left", "Bottom Left"),
+    Pair("bottom-center", "Bottom Center"),
+    Pair("bottom-right", "Bottom Right")
+)
+
+val WATERMARK_COLORS_LIST = listOf(
+    Pair("#000000", "Black"),
+    Pair("#FFFFFF", "White"),
+    Pair("#FF0000", "Red"),
+    Pair("#0000FF", "Blue")
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        clearStaleScratchFiles(this)
         enableEdgeToEdge()
         setContent {
             MyApplicationTheme {
@@ -242,7 +275,7 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
                         color = BlackColor,
                         maxLines = 1
                     )
-                    
+
                     Text(
                         text = tool.desc,
                         fontSize = 11.sp,
@@ -276,12 +309,12 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
             }
         }
 
-        // Trust Card
+        // Trust badge footer
         item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(2) }) {
             BrutalistShadowBox(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 backgroundColor = CreamColor,
                 cornerRadius = 16.dp
             ) {
@@ -291,16 +324,15 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = "Your files never leave your device. 🔒",
-                        fontSize = 13.sp,
+                        text = "Zero-Risk Guarantee",
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = BlackColor,
-                        modifier = Modifier.padding(bottom = 10.dp)
+                        modifier = Modifier.padding(bottom = 6.dp)
                     )
-                    TrustRow(MintColor, "No uploads to any server")
-                    TrustRow(YellowColor, "No account needed")
-                    TrustRow(SkyBlueColor, "Works offline")
-                    TrustRow(PinkColor, "Open source libraries")
+                    TrustRow(MintColor, "Files are never uploaded to any server")
+                    TrustRow(SkyBlueColor, "No account or registration required")
+                    TrustRow(PinkColor, "100% on-device local processing")
                 }
             }
         }
@@ -308,148 +340,153 @@ fun HomeScreen(onScreenNavigate: (String) -> Unit) {
 }
 
 @Composable
-fun StepItem(number: String, title: String, desc: String, color: Color) {
+fun StepItem(number: String, title: String, desc: String, accentColor: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(vertical = 12.dp, horizontal = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.Top
     ) {
         Box(
             modifier = Modifier
-                .size(32.dp)
-                .background(color, RoundedCornerShape(6.dp))
-                .border(2.dp, BlackColor, RoundedCornerShape(6.dp)),
+                .size(36.dp)
+                .background(accentColor, CircleShape)
+                .border(2.dp, BlackColor, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = number, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, color = BlackColor)
+            Text(
+                text = number,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black,
+                color = BlackColor
+            )
         }
-        Column {
-            Text(text = title, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, color = BlackColor)
-            Text(text = desc, fontSize = 11.sp, color = Color(0xFF666666), lineHeight = 15.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = BlackColor,
+                modifier = Modifier.padding(bottom = 2.dp)
+            )
+            Text(
+                text = desc,
+                fontSize = 12.sp,
+                color = Color(0xFF555555),
+                lineHeight = 17.sp
+            )
         }
     }
 }
 
 @Composable
-fun TrustRow(color: Color, text: String) {
+fun TrustRow(dotColor: Color, text: String) {
     Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(vertical = 5.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             modifier = Modifier
                 .size(8.dp)
-                .background(color, CircleShape)
+                .background(dotColor, CircleShape)
                 .border(1.5.dp, BlackColor, CircleShape)
         )
-        Text(text = text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = BlackColor)
+        Text(
+            text = text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFF333333)
+        )
     }
 }
 
-data class ToolItem(val badge: String, val title: String, val desc: String, val screenKey: String, val badgeColor: Color, val icon: String = "", val badgeBgColor: Color? = null)
+data class ToolItem(
+    val badge: String,
+    val title: String,
+    val desc: String,
+    val screenKey: String,
+    val badgeColor: Color,
+    val icon: String,
+    val badgeBgColor: Color? = null
+)
 
-// ---------------------- PRIVACY SCREEN ----------------------
+// ---------------------- PRIVACY POLICY SCREEN ----------------------
 @Composable
 fun PrivacyScreen() {
+    val scrollState = rememberScrollState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(WhiteColor)
-            .verticalScroll(rememberScrollState())
-            .padding(bottom = 32.dp)
+            .background(BackgroundColor)
+            .verticalScroll(scrollState)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // Privacy Hero
-        Column(
+        // Hero badge
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .background(CreamColor)
-                .bottomBorder(2.dp, BlackColor)
-                .padding(20.dp)
+                .background(MintColor, RoundedCornerShape(99.dp))
+                .border(2.dp, BlackColor, RoundedCornerShape(99.dp))
+                .padding(horizontal = 14.dp, vertical = 6.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .padding(bottom = 12.dp)
-                    .background(MintColor, RoundedCornerShape(99.dp))
-                    .border(2.dp, BlackColor, RoundedCornerShape(99.dp))
-                    .padding(horizontal = 12.dp, vertical = 5.dp)
-            ) {
-                Text(
-                    text = "✦ PRIVACY POLICY",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = BlackColor
-                )
-            }
             Text(
-                text = "Zero Data Collection.",
-                fontSize = 28.sp,
+                text = "🛡️ 100% OFFLINE PRIVACY GUARANTEE",
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
                 color = BlackColor,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            Text(
-                text = "We built this app on a simple premise: your documents are none of our business.",
-                fontSize = 13.sp,
-                color = Color(0xFF444444),
-                lineHeight = 19.5.sp
+                letterSpacing = 0.05.em
             )
         }
 
-        // Privacy Cards Grid/List
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+        Text(
+            text = "Your Files Never\nLeave Your Phone.",
+            fontSize = 28.sp,
+            fontWeight = FontWeight.Black,
+            lineHeight = 32.sp,
+            letterSpacing = (-0.03).em,
+            color = BlackColor
+        )
+
+        Text(
+            text = "Most file converters send your documents to a cloud server to be processed. Flipp doesn't. Every single tool runs locally on your Android device.",
+            fontSize = 13.sp,
+            color = Color(0xFF444444),
+            lineHeight = 20.sp
+        )
+
+        Spacer(modifier = Modifier.height(4.dp))
+
+        PrivacyCard("📡", "Zero Network Traffic", "Flipp has no network permissions in its manifest. It cannot communicate with any server even if it wanted to.", CreamColor)
+        PrivacyCard("💾", "No Local File Storage", "Files are opened via Android's Storage Access Framework (SAF). Flipp does not store, copy, or cache your documents after conversion.", WhiteColor)
+        PrivacyCard("🔒", "Client-Side Encryption", "When you protect a PDF with a password, AES-256 encryption happens locally on your processor. We never see your password.", SkyBlueColor)
+        PrivacyCard("🚫", "No Analytics or Telemetry", "No Google Analytics, no Firebase, no crash reporting SDKs. Your app usage is completely private.", PinkColor)
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        BrutalistShadowBox(
+            modifier = Modifier.fillMaxWidth(),
+            backgroundColor = MintColor,
+            cornerRadius = 16.dp
         ) {
-            PrivacyCard(
-                icon = "🔒",
-                title = "100% On-Device Processing",
-                body = "Every PDF conversion, image extraction, and merge happens entirely within your device's memory. No data is sent to our servers — because we don't have any.",
-                bgColor = YellowColor
-            )
-
-            PrivacyCard(
-                icon = "✈️",
-                title = "No Internet Required",
-                body = "This app works completely offline. You can use it in airplane mode, in a basement, or anywhere without a network connection. It has no network permissions in its manifest.",
-                bgColor = SkyBlueColor
-            )
-
-            PrivacyCard(
-                icon = "👤",
-                title = "No Accounts, No Tracking",
-                body = "No sign-up. No login. No analytics SDKs. No crash reporters sending stack traces to the cloud. No cookies. We don't know who you are, and we like it that way.",
-                bgColor = PinkColor
-            )
-
-            PrivacyCard(
-                icon = "🗑️",
-                title = "Ephemeral Storage",
-                body = "Files you open are processed in memory. Converted outputs are written only where you choose to save them via the system file picker. We store nothing permanently.",
-                bgColor = MintColor
-            )
-
-            // Local Guarantee Banner
-            BrutalistShadowBox(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp),
-                backgroundColor = BlackColor,
-                cornerRadius = 16.dp
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Box(modifier = Modifier.padding(16.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "✦ no uploads. no servers. 100% local.",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = WhiteColor,
-                        letterSpacing = 0.02.em
-                    )
-                }
+                Text(
+                    text = "The Open Source Promise",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Black,
+                    color = BlackColor
+                )
+                Text(
+                    text = "Flipp is completely open source. You can audit every line of Kotlin code yourself to verify that no network requests are ever made.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF222222),
+                    lineHeight = 18.sp
+                )
             }
         }
     }
@@ -485,5 +522,30 @@ fun PrivacyCard(icon: String, title: String, body: String, bgColor: Color) {
                 )
             }
         }
+    }
+}
+
+/**
+ * Sweeps cache directory on app launch to purge any orphaned scratch files from previous runs.
+ */
+fun clearStaleScratchFiles(context: Context) {
+    try {
+        context.cacheDir.listFiles()?.forEach { file ->
+            val name = file.name
+            if (name.startsWith("converted_zip_") ||
+                name.startsWith("combined_pdf_") ||
+                name.startsWith("merged_pdf_") ||
+                name.startsWith("split_") ||
+                name.startsWith("protected_pdf_") ||
+                name.startsWith("numbered_") ||
+                name.startsWith("watermarked_") ||
+                name.startsWith("text_generated_") ||
+                name == "text_generated.pdf"
+            ) {
+                file.delete()
+            }
+        }
+    } catch (e: Exception) {
+        AppLogger.e("MainActivity", "Error cleaning stale scratch files", e)
     }
 }
