@@ -54,6 +54,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -189,6 +190,7 @@ fun TopNavbar(
         Row(
             modifier = Modifier
                 .weight(1f)
+                .heightIn(min = 48.dp)
                 .clickable(
                     role = Role.Button,
                     onClickLabel = "Go to home screen",
@@ -196,8 +198,14 @@ fun TopNavbar(
                 ),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            Image(
+                painter = painterResource(R.drawable.flipp_logo_small),
+                contentDescription = "Flipp logo",
+                modifier = Modifier.size(36.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "flipp",
+                text = "Flipp",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Black,
                 color = BlackColor

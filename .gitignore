@@ -21,3 +21,4 @@ app/build
 test_output.txt
 .build-outputs/
 *.keystore.base64
+design-assets/

@@ -46,7 +46,9 @@ class UiComponentsAccessibilityTest {
             )
         }
 
-        composeTestRule.onNodeWithText("flipp")
+        composeTestRule.onNodeWithText("Flipp")
+            .assertExists()
+        composeTestRule.onNode(hasContentDescription("Flipp logo"))
             .assertExists()
         composeTestRule.onAllNodes(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
             .assertCountEquals(2) // Logo Row button + Privacy IconButton
