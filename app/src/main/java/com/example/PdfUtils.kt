@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import com.itextpdf.text.BaseColor
 import com.itextpdf.text.Document
 import com.itextpdf.text.Element
 import com.itextpdf.text.Font
@@ -13,6 +14,8 @@ import com.itextpdf.text.Paragraph
 import com.itextpdf.text.PageSize
 import com.itextpdf.text.Rectangle
 import com.itextpdf.text.pdf.BaseFont
+import com.itextpdf.text.pdf.PdfContentByte
+import com.itextpdf.text.pdf.PdfGState
 import com.itextpdf.text.pdf.PdfCopy
 import com.itextpdf.text.pdf.PdfReader
 import com.itextpdf.text.pdf.PdfStamper
@@ -883,4 +886,159 @@ object PdfUtils {
             reader.close()
         }
     }
+
+    /**
+     * Reads the visible page box and rotation using zero-based page indexing, matching PdfRenderer.
+     */
+    fun getPdfPageGeometry(context: Context, pdfUri: Uri, pageIndex: Int): PdfPageGeometry {
+        val stream = context.contentResolver.openInputStream(pdfUri)
+            ?: throw Exception("Failed to open input stream")
+        return stream.use { input ->
+            val reader = PdfReader(input)
+            try {
+                require(pageIndex in 0 until reader.numberOfPages) { "PDF page index is out of range" }
+                val pageNumber = pageIndex + 1
+                val pageBox = reader.getCropBox(pageNumber) ?: reader.getPageSize(pageNumber)
+                PdfPageGeometry(
+                    left = pageBox.left,
+                    bottom = pageBox.bottom,
+                    width = pageBox.width,
+                    height = pageBox.height,
+                    rotation = reader.getPageRotation(pageNumber)
+                )
+            } finally {
+                reader.close()
+            }
+        }
+    }
+
+    /**
+     * Adds page-relative vector annotations to their one-based PDF pages while leaving existing page content intact.
+     * Empty annotation maps copy the source bytes unchanged.
+     */
+    fun stampAnnotationsOnPdfPages(
+        context: Context,
+        pdfUri: Uri,
+        annotationsByPage: Map<Int, PageAnnotationSet>,
+        outputStream: OutputStream
+    ) {
+        val nonEmptyPages = annotationsByPage.filterValues { annotations ->
+            annotations.strokes.any { it.points.isNotEmpty() } || !annotations.text?.text.isNullOrBlank()
+        }
+        if (nonEmptyPages.isEmpty()) {
+            val input = context.contentResolver.openInputStream(pdfUri)
+                ?: throw Exception("Failed to open input stream")
+            input.use { it.copyTo(outputStream) }
+            return
+        }
+
+        val stream = context.contentResolver.openInputStream(pdfUri)
+            ?: throw Exception("Failed to open input stream")
+        stream.use { input ->
+            val reader = PdfReader(input)
+            try {
+                require(nonEmptyPages.keys.all { it in 1..reader.numberOfPages }) {
+                    "Annotation page is out of range"
+                }
+                val stamper = PdfStamper(reader, outputStream)
+                try {
+                    val boldFont = BaseFont.createFont(
+                        BaseFont.HELVETICA_BOLD,
+                        BaseFont.WINANSI,
+                        BaseFont.NOT_EMBEDDED
+                    )
+                    for ((pageNumber, annotations) in nonEmptyPages) {
+                        val pageBox = reader.getCropBox(pageNumber) ?: reader.getPageSize(pageNumber)
+                        val geometry = PdfPageGeometry(
+                            left = pageBox.left,
+                            bottom = pageBox.bottom,
+                            width = pageBox.width,
+                            height = pageBox.height,
+                            rotation = reader.getPageRotation(pageNumber)
+                        )
+                        val content = stamper.getOverContent(pageNumber)
+                        content.saveState()
+                        content.rectangle(pageBox.left, pageBox.bottom, pageBox.width, pageBox.height)
+                        content.clip()
+                        content.newPath()
+
+                        annotations.strokes.forEach { stroke ->
+                            drawPdfStroke(content, geometry, stroke)
+                        }
+                        annotations.text?.takeIf { it.text.isNotBlank() }?.let { text ->
+                            drawPdfText(content, geometry, boldFont, text)
+                        }
+
+                        content.restoreState()
+                    }
+                } finally {
+                    stamper.close()
+                }
+            } finally {
+                reader.close()
+            }
+        }
+    }
+
+    private fun drawPdfStroke(content: PdfContentByte, geometry: PdfPageGeometry, stroke: PdfStroke) {
+        if (stroke.points.isEmpty()) return
+        val color = stroke.colorArgb
+        val baseColor = colorFromArgb(color)
+        val width = (stroke.width * geometry.displayWidth).coerceAtLeast(0.1f)
+        val opacity = (Color.alpha(color) / 255f).coerceIn(0f, 1f)
+        val graphicsState = PdfGState().apply { setStrokeOpacity(opacity) }
+        content.saveState()
+        content.setGState(graphicsState)
+        content.setColorStroke(baseColor)
+        content.setLineWidth(width)
+        content.setLineCap(PdfContentByte.LINE_CAP_ROUND)
+        content.setLineJoin(PdfContentByte.LINE_JOIN_ROUND)
+
+        if (stroke.points.size == 1) {
+            val point = geometry.toPdfPoint(stroke.points.first())
+            content.setGState(PdfGState().apply { setFillOpacity(opacity) })
+            content.setColorFill(baseColor)
+            content.circle(point.x, point.y, width / 2f)
+            content.fill()
+        } else {
+            val firstPoint = geometry.toPdfPoint(stroke.points.first())
+            content.moveTo(firstPoint.x, firstPoint.y)
+            stroke.points.drop(1).forEach { pagePoint ->
+                val point = geometry.toPdfPoint(pagePoint)
+                content.lineTo(point.x, point.y)
+            }
+            content.stroke()
+        }
+        content.restoreState()
+    }
+
+    private fun drawPdfText(
+        content: PdfContentByte,
+        geometry: PdfPageGeometry,
+        font: BaseFont,
+        annotation: PdfTextAnnotation
+    ) {
+        val fontSize = (annotation.fontSize * geometry.displayWidth).coerceAtLeast(0.1f)
+        val baseline = PagePoint(
+            x = annotation.position.x,
+            y = annotation.position.y + fontSize / geometry.displayHeight
+        )
+        val point = geometry.toPdfPoint(baseline)
+        val color = annotation.colorArgb
+        content.saveState()
+        content.setGState(PdfGState().apply { setFillOpacity((Color.alpha(color) / 255f).coerceIn(0f, 1f)) })
+        content.beginText()
+        content.setFontAndSize(font, fontSize)
+        content.setColorFill(colorFromArgb(color))
+        content.setTextMatrix(point.x, point.y)
+        content.showText(annotation.text)
+        content.endText()
+        content.restoreState()
+    }
+
+    private fun colorFromArgb(color: Int) = BaseColor(
+        Color.red(color),
+        Color.green(color),
+        Color.blue(color)
+    )
 }

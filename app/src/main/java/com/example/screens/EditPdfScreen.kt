@@ -1,9 +1,6 @@
 package com.example
 
-import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Paint
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.widget.Toast
@@ -12,10 +9,12 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +41,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -53,19 +53,27 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.ui.theme.BlackColor
 import com.example.ui.theme.CreamColor
 import com.example.ui.theme.MintColor
@@ -75,17 +83,12 @@ import com.example.ui.theme.SkyBlueColor
 import com.example.ui.theme.WhiteColor
 import com.example.ui.theme.YellowColor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import kotlin.math.roundToInt
-
-data class DrawStroke(
-    val points: List<Offset>,
-    val color: Color,
-    val strokeWidth: Float
-)
 
 @Composable
 fun EditPdfScreen(onBack: () -> Unit) {
@@ -93,7 +96,7 @@ fun EditPdfScreen(onBack: () -> Unit) {
     val coroutineScope = rememberCoroutineScope()
 
     var stage by rememberSaveable { mutableIntStateOf(1) }
-    var selectedPdfUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedPdfUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var pdfFileName by rememberSaveable { mutableStateOf("") }
     var pdfFileSize by rememberSaveable { mutableStateOf("") }
     var totalPages by rememberSaveable { mutableIntStateOf(1) }
@@ -103,41 +106,58 @@ fun EditPdfScreen(onBack: () -> Unit) {
     // Editor modes: "draw", "text"
     var editorMode by rememberSaveable { mutableStateOf("draw") }
 
-    // Drawing state
-    val strokes = remember { mutableStateListOf<DrawStroke>() }
-    var currentStrokePoints = remember { mutableStateListOf<Offset>() }
+    // Annotations are page-scoped and stored as page-relative coordinates so they survive resizing and rotation.
+    val annotationState: EditPdfAnnotationViewModel = viewModel()
+    val annotationsByPage = annotationState.annotationsByPage
+    val currentPageAnnotations = annotationsByPage[currentPageIndex] ?: PageAnnotationSet()
+    val strokes = currentPageAnnotations.strokes
+    val currentTextAnnotation = currentPageAnnotations.text
+    val annotatedPageCount = annotationsByPage.values.count { page ->
+        page.strokes.any { it.points.isNotEmpty() } || !page.text?.text.isNullOrBlank()
+    }
+    val currentStrokePoints = remember { mutableStateListOf<PagePoint>() }
+    var activeStrokePage by remember { mutableIntStateOf(0) }
+    var activeStrokeColor by remember { mutableIntStateOf(Color.Black.toArgb()) }
+    var activeStrokeWidth by remember { mutableFloatStateOf(0f) }
     var drawColor by remember { mutableStateOf(BlackColor) }
     var strokeWidthPx by remember { mutableFloatStateOf(8f) }
 
     // Text annotation state
-    var textNote by rememberSaveable { mutableStateOf("") }
     var textNoteColor by remember { mutableStateOf(RedColor) }
-    var textSizePt by rememberSaveable { mutableFloatStateOf(18f) }
-    var textOffsetX by remember { mutableFloatStateOf(50f) }
-    var textOffsetY by remember { mutableFloatStateOf(50f) }
 
     var progressVal by remember { mutableFloatStateOf(0f) }
     var tempEditedFile by remember { mutableStateOf<File?>(null) }
 
-    fun loadCurrentPageThumb(page: Int) {
-        val uri = selectedPdfUri ?: return
-        coroutineScope.launch(Dispatchers.IO) {
-            val thumb = loadPdfPageBitmap(context, uri, page - 1)
-            withContext(Dispatchers.Main) {
-                currentPageBitmap?.recycle()
-                currentPageBitmap = thumb
-            }
+    fun updateCurrentPageAnnotations(transform: (PageAnnotationSet) -> PageAnnotationSet) {
+        val updated = transform(annotationsByPage[currentPageIndex] ?: PageAnnotationSet())
+        if (updated.strokes.isEmpty() && updated.text == null) {
+            annotationsByPage.remove(currentPageIndex)
+        } else {
+            annotationsByPage[currentPageIndex] = updated
         }
     }
 
-    fun resetState() {
-        currentPageBitmap?.recycle()
-        currentPageBitmap = null
-        strokes.clear()
+    fun clearActiveStroke() {
         currentStrokePoints.clear()
-        textNote = ""
-        textOffsetX = 50f
-        textOffsetY = 50f
+        activeStrokePage = 0
+        activeStrokeWidth = 0f
+    }
+
+    fun changePage(page: Int) {
+        if (page !in 1..totalPages || page == currentPageIndex) return
+        currentPageIndex = page
+        clearActiveStroke()
+        val oldBitmap = currentPageBitmap
+        currentPageBitmap = null
+        oldBitmap?.recycle()
+    }
+
+    fun resetState() {
+        val oldBitmap = currentPageBitmap
+        currentPageBitmap = null
+        oldBitmap?.recycle()
+        annotationsByPage.clear()
+        clearActiveStroke()
         tempEditedFile?.delete()
         tempEditedFile = null
         selectedPdfUri = null
@@ -147,6 +167,26 @@ fun EditPdfScreen(onBack: () -> Unit) {
         currentPageIndex = 1
         progressVal = 0f
         stage = 1
+    }
+
+    LaunchedEffect(stage, selectedPdfUri, currentPageIndex) {
+        val uri = selectedPdfUri
+        if (stage != 2 || uri == null) return@LaunchedEffect
+
+        val oldBitmap = currentPageBitmap
+        currentPageBitmap = null
+        oldBitmap?.recycle()
+        try {
+            val bitmap = withContext(Dispatchers.IO) {
+                loadPdfPageBitmap(context, uri, currentPageIndex - 1)
+                    ?: throw IllegalStateException("Could not render this PDF page")
+            }
+            currentPageBitmap = bitmap
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            Toast.makeText(context, "Error rendering PDF page: ${error.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     val pdfSaver = rememberLauncherForActivityResult(
@@ -175,54 +215,21 @@ fun EditPdfScreen(onBack: () -> Unit) {
 
     fun startExport() {
         val uri = selectedPdfUri ?: return
-        val currentBitmap = currentPageBitmap ?: return
+        val annotations = annotationsByPage.toMap()
         stage = 2
         progressVal = 0.3f
 
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                // Render annotations to an overlay bitmap matching the preview dimensions
-                val overlayBitmap = Bitmap.createBitmap(currentBitmap.width, currentBitmap.height, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(overlayBitmap)
-
-                // 1. Draw freehand strokes
-                val paint = Paint().apply {
-                    isAntiAlias = true
-                    style = Paint.Style.STROKE
-                    strokeCap = Paint.Cap.ROUND
-                    strokeJoin = Paint.Join.ROUND
-                }
-                for (stroke in strokes) {
-                    paint.color = stroke.color.toArgb()
-                    paint.strokeWidth = stroke.strokeWidth
-                    val pts = stroke.points
-                    for (i in 0 until pts.size - 1) {
-                        canvas.drawLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y, paint)
-                    }
-                }
-
-                // 2. Draw text note if present
-                if (textNote.isNotBlank()) {
-                    val textPaint = Paint().apply {
-                        isAntiAlias = true
-                        color = textNoteColor.toArgb()
-                        textSize = textSizePt * 2f // Scale relative to bitmap resolution
-                        typeface = android.graphics.Typeface.DEFAULT_BOLD
-                    }
-                    canvas.drawText(textNote, textOffsetX * 2f, textOffsetY * 2f, textPaint)
-                }
-
                 val tempFile = File(context.cacheDir, "edited_document.pdf")
                 FileOutputStream(tempFile).use { fos ->
-                    PdfUtils.stampOverlayOnPdfPage(
+                    PdfUtils.stampAnnotationsOnPdfPages(
                         context = context,
                         pdfUri = uri,
-                        overlayBitmap = overlayBitmap,
-                        pageIndex = currentPageIndex,
+                        annotationsByPage = annotations,
                         outputStream = fos
                     )
                 }
-                overlayBitmap.recycle()
 
                 withContext(Dispatchers.Main) {
                     progressVal = 1f
@@ -232,6 +239,7 @@ fun EditPdfScreen(onBack: () -> Unit) {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(context, "Failed to export edited PDF: ${e.message}", Toast.LENGTH_LONG).show()
+                    progressVal = 0f
                     stage = 2
                 }
             }
@@ -268,33 +276,36 @@ fun EditPdfScreen(onBack: () -> Unit) {
                         prompt = "Drag PDF here or",
                         onCancelledMessage = "",
                         onFileSelected = { uri ->
-                            selectedPdfUri = uri
                             coroutineScope.launch(Dispatchers.IO) {
                                 try {
-                                    val cursor = context.contentResolver.query(uri, null, null, null, null)
-                                    cursor?.use {
-                                        if (it.moveToFirst()) {
-                                            val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                                            val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
-                                            if (nameIndex != -1) pdfFileName = it.getString(nameIndex) ?: "document.pdf"
-                                            if (sizeIndex != -1) {
-                                                val bytes = it.getLong(sizeIndex)
-                                                pdfFileSize = String.format("%.2f MB", bytes / (1024f * 1024f))
+                                    var selectedName = "document.pdf"
+                                    var selectedSize = "PDF"
+                                    try {
+                                        val cursor = context.contentResolver.query(uri, null, null, null, null)
+                                        cursor?.use {
+                                            if (it.moveToFirst()) {
+                                                val nameIndex = it.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                                                val sizeIndex = it.getColumnIndex(OpenableColumns.SIZE)
+                                                if (nameIndex != -1) selectedName = it.getString(nameIndex) ?: "document.pdf"
+                                                if (sizeIndex != -1) {
+                                                    val bytes = it.getLong(sizeIndex)
+                                                    selectedSize = String.format("%.2f MB", bytes / (1024f * 1024f))
+                                                }
                                             }
                                         }
-                                    }
-                                } catch (_: Exception) {}
-
-                                try {
+                                    } catch (_: Exception) {}
                                     val count = PdfUtils.getPdfPageCount(context, uri)
-                                    totalPages = count
-                                    currentPageIndex = 1
-                                    val thumb = loadPdfPageBitmap(context, uri, 0)
                                     withContext(Dispatchers.Main) {
-                                        currentPageBitmap = thumb
-                                        strokes.clear()
-                                        currentStrokePoints.clear()
-                                        textNote = ""
+                                        val oldBitmap = currentPageBitmap
+                                        currentPageBitmap = null
+                                        oldBitmap?.recycle()
+                                        annotationsByPage.clear()
+                                        clearActiveStroke()
+                                        selectedPdfUri = uri
+                                        pdfFileName = selectedName
+                                        pdfFileSize = selectedSize
+                                        totalPages = count
+                                        currentPageIndex = 1
                                         stage = 2
                                     }
                                 } catch (e: Exception) {
@@ -362,12 +373,7 @@ fun EditPdfScreen(onBack: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
-                                onClick = {
-                                    if (currentPageIndex > 1) {
-                                        currentPageIndex--
-                                        loadCurrentPageThumb(currentPageIndex)
-                                    }
-                                },
+                                onClick = { changePage(currentPageIndex - 1) },
                                 enabled = currentPageIndex > 1
                             ) {
                                 Icon(
@@ -385,12 +391,7 @@ fun EditPdfScreen(onBack: () -> Unit) {
                             )
 
                             IconButton(
-                                onClick = {
-                                    if (currentPageIndex < totalPages) {
-                                        currentPageIndex++
-                                        loadCurrentPageThumb(currentPageIndex)
-                                    }
-                                },
+                                onClick = { changePage(currentPageIndex + 1) },
                                 enabled = currentPageIndex < totalPages
                             ) {
                                 Icon(
@@ -430,7 +431,11 @@ fun EditPdfScreen(onBack: () -> Unit) {
                                     if (strokes.isNotEmpty()) {
                                         BrutalistButton(
                                             text = "Undo Last",
-                                            onClick = { strokes.removeLastOrNull() },
+                                            onClick = {
+                                                updateCurrentPageAnnotations { page ->
+                                                    page.copy(strokes = page.strokes.dropLast(1))
+                                                }
+                                            },
                                             backgroundColor = CreamColor
                                         )
                                     }
@@ -470,8 +475,22 @@ fun EditPdfScreen(onBack: () -> Unit) {
                             Column(modifier = Modifier.padding(14.dp)) {
                                 Text("Annotation Text:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 OutlinedTextField(
-                                    value = textNote,
-                                    onValueChange = { textNote = it },
+                                    value = currentTextAnnotation?.text.orEmpty(),
+                                    onValueChange = { value ->
+                                        updateCurrentPageAnnotations { page ->
+                                            val updatedText = if (value.isBlank()) {
+                                                null
+                                            } else {
+                                                page.text?.copy(text = value) ?: PdfTextAnnotation(
+                                                    text = value,
+                                                    position = PagePoint(0.08f, 0.08f),
+                                                    colorArgb = textNoteColor.toArgb(),
+                                                    fontSize = DEFAULT_TEXT_FONT_SIZE_RATIO
+                                                )
+                                            }
+                                            page.copy(text = updatedText)
+                                        }
+                                    },
                                     placeholder = { Text("Enter text to overlay on page...") },
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -507,7 +526,12 @@ fun EditPdfScreen(onBack: () -> Unit) {
                                                     color = BlackColor,
                                                     shape = RoundedCornerShape(6.dp)
                                                 )
-                                                .clickable { textNoteColor = color }
+                                                .clickable {
+                                                    textNoteColor = color
+                                                    updateCurrentPageAnnotations { page ->
+                                                        page.copy(text = page.text?.copy(colorArgb = color.toArgb()))
+                                                    }
+                                                }
                                             )
                                         }
                                     }
@@ -524,71 +548,154 @@ fun EditPdfScreen(onBack: () -> Unit) {
                         color = BlackColor
                     )
 
-                    Box(
+                    BoxWithConstraints(
                         modifier = Modifier
                             .fillMaxWidth()
                             .aspectRatio(0.72f)
                             .background(WhiteColor, RoundedCornerShape(12.dp))
                             .border(2.dp, BlackColor, RoundedCornerShape(12.dp))
-                            .pointerInput(editorMode, drawColor, strokeWidthPx) {
-                                if (editorMode == "draw") {
-                                    detectDragGestures(
-                                        onDragStart = { offset ->
-                                            currentStrokePoints.clear()
-                                            currentStrokePoints.add(offset)
-                                        },
-                                        onDrag = { change, dragAmount ->
-                                            change.consume()
-                                            currentStrokePoints.add(change.position)
-                                        },
-                                        onDragEnd = {
-                                            if (currentStrokePoints.isNotEmpty()) {
-                                                strokes.add(
-                                                    DrawStroke(
-                                                        points = currentStrokePoints.toList(),
-                                                        color = drawColor,
-                                                        strokeWidth = strokeWidthPx
-                                                    )
-                                                )
-                                                currentStrokePoints.clear()
-                                            }
-                                        }
-                                    )
-                                }
-                            }
                     ) {
+                        val density = LocalDensity.current
+                        val bitmap = currentPageBitmap
+                        val pageViewport = bitmap?.let {
+                            PageViewport.fit(
+                                containerWidth = with(density) { maxWidth.toPx() },
+                                containerHeight = with(density) { maxHeight.toPx() },
+                                pageWidth = it.width.toFloat(),
+                                pageHeight = it.height.toFloat()
+                            )
+                        }
+
                         // Background page image
-                        if (currentPageBitmap != null) {
+                        if (bitmap != null) {
                             Image(
-                                bitmap = currentPageBitmap!!.asImageBitmap(),
+                                bitmap = bitmap.asImageBitmap(),
                                 contentDescription = "Page $currentPageIndex preview",
                                 contentScale = ContentScale.Fit,
                                 modifier = Modifier.fillMaxSize()
                             )
-                        }
 
-                        // Text Note overlay draggable
-                        if (textNote.isNotBlank()) {
-                            Box(
+                            Canvas(
                                 modifier = Modifier
-                                    .offset { IntOffset(textOffsetX.roundToInt(), textOffsetY.roundToInt()) }
-                                    .background(WhiteColor.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
-                                    .border(1.5.dp, textNoteColor, RoundedCornerShape(4.dp))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    .pointerInput(Unit) {
-                                        detectDragGestures { change, dragAmount ->
-                                            change.consume()
-                                            textOffsetX += dragAmount.x
-                                            textOffsetY += dragAmount.y
+                                    .fillMaxSize()
+                                    .pointerInput(
+                                        editorMode,
+                                        currentPageIndex,
+                                        bitmap.width,
+                                        bitmap.height,
+                                        drawColor,
+                                        strokeWidthPx
+                                    ) {
+                                        if (editorMode == "draw") {
+                                            val viewport = PageViewport.fit(
+                                                containerWidth = size.width.toFloat(),
+                                                containerHeight = size.height.toFloat(),
+                                                pageWidth = bitmap.width.toFloat(),
+                                                pageHeight = bitmap.height.toFloat()
+                                            )
+                                            detectDragGestures(
+                                                onDragStart = { offset ->
+                                                    currentStrokePoints.clear()
+                                                    activeStrokePage = 0
+                                                    viewport.screenToPage(offset.x, offset.y)?.let { start ->
+                                                        activeStrokePage = currentPageIndex
+                                                        activeStrokeColor = drawColor.toArgb()
+                                                        activeStrokeWidth = viewport.normalizedStrokeWidth(strokeWidthPx)
+                                                        currentStrokePoints.add(start)
+                                                    }
+                                                },
+                                                onDrag = { change, _ ->
+                                                    if (activeStrokePage == currentPageIndex) {
+                                                        change.consume()
+                                                        viewport.screenToPage(change.position.x, change.position.y)?.let {
+                                                            currentStrokePoints.add(it)
+                                                        }
+                                                    }
+                                                },
+                                                onDragEnd = {
+                                                    if (activeStrokePage == currentPageIndex && currentStrokePoints.isNotEmpty()) {
+                                                        val completedStroke = PdfStroke(
+                                                            points = currentStrokePoints.toList(),
+                                                            colorArgb = activeStrokeColor,
+                                                            width = activeStrokeWidth
+                                                        )
+                                                        updateCurrentPageAnnotations { page ->
+                                                            page.copy(strokes = page.strokes + completedStroke)
+                                                        }
+                                                    }
+                                                    clearActiveStroke()
+                                                },
+                                                onDragCancel = { clearActiveStroke() }
+                                            )
                                         }
                                     }
                             ) {
-                                Text(
-                                    text = textNote,
-                                    fontSize = textSizePt.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = textNoteColor
+                                val viewport = PageViewport.fit(
+                                    containerWidth = size.width,
+                                    containerHeight = size.height,
+                                    pageWidth = bitmap.width.toFloat(),
+                                    pageHeight = bitmap.height.toFloat()
                                 )
+                                clipRect(viewport.left, viewport.top, viewport.right, viewport.bottom) {
+                                    strokes.forEach { drawNormalizedStroke(it, viewport) }
+                                    if (activeStrokePage == currentPageIndex && currentStrokePoints.isNotEmpty()) {
+                                        drawNormalizedStroke(
+                                            PdfStroke(
+                                                points = currentStrokePoints.toList(),
+                                                colorArgb = activeStrokeColor,
+                                                width = activeStrokeWidth
+                                            ),
+                                            viewport
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // The text annotation is clipped to the fitted page rectangle and stores page-relative position.
+                        if (bitmap != null && pageViewport != null && currentTextAnnotation != null) {
+                            val viewport = pageViewport
+                            val pageWidthDp = with(density) { viewport.width.toDp() }
+                            val pageHeightDp = with(density) { viewport.height.toDp() }
+                            Box(
+                                modifier = Modifier
+                                    .offset { IntOffset(viewport.left.roundToInt(), viewport.top.roundToInt()) }
+                                    .size(pageWidthDp, pageHeightDp)
+                                    .clipToBounds()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .offset {
+                                            IntOffset(
+                                                (currentTextAnnotation.position.x * viewport.width).roundToInt(),
+                                                (currentTextAnnotation.position.y * viewport.height).roundToInt()
+                                            )
+                                        }
+                                        .background(WhiteColor.copy(alpha = 0.85f), RoundedCornerShape(4.dp))
+                                        .border(1.5.dp, Color(currentTextAnnotation.colorArgb), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                        .pointerInput(currentPageIndex, currentTextAnnotation.position, viewport) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                val updatedPosition = PagePoint(
+                                                    x = (currentTextAnnotation.position.x + dragAmount.x / viewport.width)
+                                                        .coerceIn(0f, 1f),
+                                                    y = (currentTextAnnotation.position.y + dragAmount.y / viewport.height)
+                                                        .coerceIn(0f, 1f)
+                                                )
+                                                updateCurrentPageAnnotations { page ->
+                                                    page.copy(text = page.text?.copy(position = updatedPosition))
+                                                }
+                                            }
+                                        }
+                                ) {
+                                    Text(
+                                        text = currentTextAnnotation.text,
+                                        fontSize = (currentTextAnnotation.fontSize * viewport.width / density.density).sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(currentTextAnnotation.colorArgb)
+                                    )
+                                }
                             }
                         }
                     }
@@ -617,7 +724,7 @@ fun EditPdfScreen(onBack: () -> Unit) {
                 ) {
                     ResultsHeroBanner(
                         title = "✓ Edited PDF ready!",
-                        subtitle = "Annotations and text note stamped onto page $currentPageIndex of $totalPages.",
+                        subtitle = "Annotations saved on $annotatedPageCount of $totalPages pages.",
                         primaryCtaText = "Download Edited PDF 📄",
                         onPrimaryCta = {
                             val defaultName = pdfFileName.substringBeforeLast(".") + "_edited.pdf"
@@ -647,21 +754,23 @@ fun EditPdfScreen(onBack: () -> Unit) {
                                 color = BlackColor
                             )
                             Text(
-                                text = "Annotated Page: #$currentPageIndex (of $totalPages pages)",
+                                text = "Pages with annotations: $annotatedPageCount",
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = BlackColor
                             )
-                            if (strokes.isNotEmpty()) {
+                            val totalStrokeCount = annotationsByPage.values.sumOf { it.strokes.size }
+                            if (totalStrokeCount > 0) {
                                 Text(
-                                    text = "Drawings: ${strokes.size} stroke(s) embedded",
+                                    text = "Drawings: $totalStrokeCount stroke(s) embedded",
                                     fontSize = 12.sp,
                                     color = Color(0xFF555555)
                                 )
                             }
-                            if (textNote.isNotBlank()) {
+                            val textAnnotationCount = annotationsByPage.values.count { !it.text?.text.isNullOrBlank() }
+                            if (textAnnotationCount > 0) {
                                 Text(
-                                    text = "Text Note: \"$textNote\"",
+                                    text = "Text notes: $textAnnotationCount",
                                     fontSize = 12.sp,
                                     color = Color(0xFF555555)
                                 )
@@ -679,4 +788,29 @@ fun EditPdfScreen(onBack: () -> Unit) {
             }
         }
     }
+}
+
+private fun DrawScope.drawNormalizedStroke(stroke: PdfStroke, viewport: PageViewport) {
+    if (stroke.points.isEmpty()) return
+    val color = Color(stroke.colorArgb)
+    val width = viewport.screenStrokeWidth(stroke.width).coerceAtLeast(0.5f)
+    if (stroke.points.size == 1) {
+        val point = viewport.pageToScreen(stroke.points.first())
+        drawCircle(color = color, radius = width / 2f, center = androidx.compose.ui.geometry.Offset(point.x, point.y))
+        return
+    }
+
+    val path = Path().apply {
+        val first = viewport.pageToScreen(stroke.points.first())
+        moveTo(first.x, first.y)
+        stroke.points.drop(1).forEach { pagePoint ->
+            val point = viewport.pageToScreen(pagePoint)
+            lineTo(point.x, point.y)
+        }
+    }
+    drawPath(
+        path = path,
+        color = color,
+        style = Stroke(width = width, cap = StrokeCap.Round, join = StrokeJoin.Round)
+    )
 }
