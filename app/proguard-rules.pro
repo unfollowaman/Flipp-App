@@ -15,6 +15,3 @@
 # Preserve line numbers and source file attributes for actionable crash reporting/stack traces
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
-
-# Suppress warnings for optional SpongyCastle security dependencies referenced by iTextG
--dontwarn org.spongycastle.**

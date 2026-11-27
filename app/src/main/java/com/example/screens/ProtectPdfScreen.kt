@@ -254,7 +254,7 @@ fun ProtectPdfScreen(onBack: () -> Unit) {
                                     PdfUtils.protectPdf(
                                         context = context,
                                         pdfUri = selectedPdfUri!!,
-                                        password = java.lang.String(password),
+                                        password = password,
                                         outputStream = fos
                                     )
                                 }
