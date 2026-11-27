@@ -273,25 +273,28 @@ object PdfUtils {
     fun protectPdf(
         context: Context,
         pdfUri: Uri,
-        password: java.lang.String,
+        password: String,
         outputStream: OutputStream
     ) {
-        val inputStream = context.contentResolver.openInputStream(pdfUri) ?: throw Exception("Failed to open input stream for PDF")
+        require(password.isNotEmpty()) { "Password cannot be empty" }
+        val inputStream = context.contentResolver.openInputStream(pdfUri)
+            ?: throw Exception("Failed to open input stream for PDF")
         inputStream.use { stream ->
             val reader = PdfReader(stream)
-
-            // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF encryption
-            val bufferedOut = outputStream.buffered()
-            val stamper = PdfStamper(reader, bufferedOut)
-            stamper.setEncryption(
-                password.bytes,
-                password.bytes,
-                PdfWriter.ALLOW_PRINTING or PdfWriter.ALLOW_COPY,
-                PdfWriter.ENCRYPTION_AES_256
-            )
-
-            stamper.close()
-            reader.close()
+            try {
+                // Optimize I/O: Wrap outputStream in BufferedOutputStream to minimize disk write system calls during PDF encryption
+                val bufferedOut = outputStream.buffered()
+                val stamper = PdfStamper(reader, bufferedOut)
+                stamper.setEncryption(
+                    password.toByteArray(),
+                    password.toByteArray(),
+                    PdfWriter.ALLOW_PRINTING or PdfWriter.ALLOW_COPY,
+                    PdfWriter.ENCRYPTION_AES_256
+                )
+                stamper.close()
+            } finally {
+                reader.close()
+            }
         }
     }
 
@@ -588,19 +591,21 @@ object PdfUtils {
                     return true
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             // Check via PdfReader
         }
         return try {
             context.contentResolver.openInputStream(pdfUri)?.use { stream ->
                 val reader = PdfReader(stream)
-                val encrypted = reader.isEncrypted
-                reader.close()
-                encrypted
+                try {
+                    reader.isEncrypted
+                } finally {
+                    reader.close()
+                }
             } ?: false
         } catch (e: BadPasswordException) {
             true
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             false
         }
     }
@@ -618,9 +623,12 @@ object PdfUtils {
             ?: throw Exception("Failed to open input stream")
         stream.use { s ->
             val reader = PdfReader(s, password.toByteArray())
-            val stamper = PdfStamper(reader, outputStream.buffered())
-            stamper.close()
-            reader.close()
+            try {
+                val stamper = PdfStamper(reader, outputStream.buffered())
+                stamper.close()
+            } finally {
+                reader.close()
+            }
         }
     }
 

@@ -18,6 +18,7 @@ kotlinxCoroutinesCore = "1.10.2"
 robolectric = "4.16.1"
 roborazzi = "1.59.0"
 itextg = "5.5.10"
+spongycastle = "1.47.0.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -47,6 +48,8 @@ roborazzi = { group = "io.github.takahirom.roborazzi", name = "roborazzi", versi
 roborazzi-compose = { group = "io.github.takahirom.roborazzi", name = "roborazzi-compose", version.ref = "roborazzi" }
 roborazzi-junit-rule = { group = "io.github.takahirom.roborazzi", name = "roborazzi-junit-rule", version.ref = "roborazzi" }
 itextg = { group = "com.itextpdf", name = "itextg", version.ref = "itextg" }
+spongycastle-prov = { group = "com.madgag", name = "scprov-jdk15on", version.ref = "spongycastle" }
+spongycastle-pkix = { group = "com.madgag", name = "scpkix-jdk15on", version.ref = "spongycastle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
