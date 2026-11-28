@@ -1,0 +1,15 @@
+Flipp brings 16 tools for PDFs and images to one Android app. Select a file, choose a tool, and save the result to a location you choose.
+
+PDF AND IMAGE TOOLS
+• Convert PDF pages to PNG images in a ZIP archive.
+• Create PDFs from images or text.
+• Merge PDFs, extract a page range, rearrange pages, or delete pages.
+• Add page numbers or edit PDF pages with text and drawings.
+• Sign PDFs by drawing, typing, or placing a signature.
+• Protect PDFs with a password or unlock a PDF when you know its password.
+• Convert PDFs to text or Word (.docx), and compress PDFs.
+• Add text or image watermarks to images.
+
+Flipp processes selected files on your Android device and declares no INTERNET permission. Choose inputs and output destinations with Android's document picker. If you select a cloud or third-party file provider, that provider may handle transfers under its own privacy policy. Some tools use temporary files in Flipp's private cache while processing.
+
+PDF-to-text extracts text already embedded in a document. Scanned pages that contain only images may not have text to extract.
