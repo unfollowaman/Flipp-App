@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Privacy Policy for the Flipp Android PDF and document utility app.">
+  <title>Flipp Android Privacy Policy</title>
+  <style>
+    :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; color: #0d0d0d; background: #f8e642; }
+    body { margin: 0; padding: 32px 16px; }
+    main { max-width: 760px; margin: 0 auto; padding: 28px; background: #fff; border: 2px solid #0d0d0d; box-shadow: 6px 6px 0 #0d0d0d; }
+    h1, h2 { line-height: 1.2; }
+    h1 { margin-top: 0; font-size: clamp(1.8rem, 5vw, 2.5rem); }
+    h2 { margin-top: 2rem; font-size: 1.2rem; }
+    p, li { line-height: 1.65; }
+    li + li { margin-top: .45rem; }
+    .date { font-weight: 700; }
+    @media (max-width: 520px) { body { padding: 16px 12px; } main { padding: 20px 16px; } }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Flipp Android Privacy Policy</h1>
+  <p class="date">Effective date: November 27, 2026</p>
+  <p>This policy describes how the Flipp Android app handles information when you use its PDF and image tools. It applies to the app named Flipp. It does not describe Android, a document provider, or another service that you choose to use with your files.</p>
+
+  <h2>Information Flipp processes</h2>
+  <p>When you choose a file, Flipp reads the file content needed for the tool you selected. The app may also read the selected file's display name and size to show it in the interface. Depending on the tool, you may enter text, page ranges, formatting choices, a PDF password, or a signature, or choose an image to use as a signature or watermark. Flipp processes these items locally to create the result you request.</p>
+  <p>Flipp does not require an account and does not keep a document history or a database of your files. The app's source manifest requests no permissions. The merged release manifest includes an app-scoped signature permission contributed by AndroidX Core, but no INTERNET or broad storage permission. Android's document picker grants access to the files you select. The app does not transmit selected file contents, passwords, signatures, or extracted text to Flipp or to a Flipp server.</p>
+
+  <h2>File selection and saving</h2>
+  <p>Flipp uses Android's Storage Access Framework and system document picker for you to select input files and choose where to save outputs. The app receives access to the files you select for the requested operation. If you select a file from, or save a result through, a cloud or other third-party document provider, that provider may transfer, store, or otherwise process the file under its own privacy policy and settings. Those provider practices are separate from Flipp.</p>
+
+  <h2>Temporary files, retention, and deletion</h2>
+  <p>Some tools create temporary output or intermediate files in Flipp's app-private cache while processing. The app deletes temporary files along some workflow reset and cleanup paths, and clears a subset of known scratch-file names at launch. Cleanup is best-effort: if a process is interrupted, cleanup fails, or the app stops unexpectedly, a temporary file may remain in the cache until Android removes cached data or you clear Flipp's app storage. Flipp does not promise that every temporary file is deleted immediately after a result is saved.</p>
+  <p>Android backup is disabled for Flipp, and the app's backup and device-transfer rules exclude app data. Files that you save through a document provider are subject to the retention and deletion controls of the destination you chose.</p>
+
+  <h2>Clipboard</h2>
+  <p>The PDF-to-text tool can copy extracted text to the Android system clipboard when you tap its copy action. The text remains subject to Android's clipboard behavior and your device settings; other apps may be able to access clipboard content as allowed by Android.</p>
+
+  <h2>Diagnostics and third-party code</h2>
+  <p>Flipp uses Android system logging for diagnostic messages and exceptions. A log entry may include technical error details or a stack trace. The app has no INTERNET permission with which to send these logs. Android or device-maker diagnostic features are controlled separately by your device and its settings.</p>
+  <p>The app's Gradle dependency declarations include AndroidX, Kotlin coroutines, iTextG, and SpongyCastle for the interface, local processing, PDF handling, and encryption. Those declarations do not list an analytics, advertising, or crash-reporting SDK.</p>
+
+  <h2>Security</h2>
+  <p>File processing happens on your device. App-private cache files are protected by Android's app storage boundaries, but device access, Android settings, and any document provider you choose affect the security of files outside Flipp. The password-protection tool creates a password-protected PDF locally; keep your password safe because Flipp does not keep a copy for recovery.</p>
+
+  <h2>Changes to this policy</h2>
+  <p>If Flipp's data handling changes, this policy will be updated to describe the new behavior. Check the effective date above when reviewing this page.</p>
+
+  <h2>Contact</h2>
+  <p>For questions about this policy or Flipp's privacy practices, contact the app developer using the contact details shown in the Developer contact section of Flipp's Google Play listing.</p>
+</main>
+</body>
+</html>
